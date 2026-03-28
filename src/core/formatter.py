@@ -34,9 +34,24 @@ class MusicFormatter:
 
     def prepare_album(self, files: list[Path]):
         """
-        Gathers album-wide metadata to ensure consistency across all tracks.
+        Gathers album-wide metadata and checks for potential output directory collisions.
         """
         self.metadata_manager.analyze_album(files)
+        
+        # Check for early collision: if the final album folder already exists
+        dominant_album = self.metadata_manager.analyzer.get_value("TALB")
+        if dominant_album:
+            # Sanitize name just like LibraryManager does
+            clean_album = "".join(c for c in dominant_album if c not in r'\/:*?"<>|').strip()
+            final_path = self.output_dir.parent / clean_album
+            
+            # If the calculated final path exists and it's not our current output_dir, it's a conflict
+            if final_path.exists() and final_path.resolve() != self.output_dir.resolve():
+                logger.error(f"Naming collision detected: '{clean_album}' already exists.")
+                raise FileExistsError(
+                    f"[!] The resulting album folder '{clean_album}' already exists in the output directory. "
+                    "Please remove it or rename the source to avoid overwriting."
+                )
 
     def finalize_library(self, source_path: Optional[Path] = None):
         """
