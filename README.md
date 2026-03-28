@@ -67,7 +67,6 @@ uv run run_batch.py "./MyAlbums" -o "./FormattedAlbums"
   - `metadata/`: 태그 추출 및 분석(`metadata_processor.py`), 앨범 통합(`metadata_analyzer.py`), 커버 검색(`cover_finder.py`)
   - `processing/`: 오디오 변환(`audio_utils.py`), 이미지 최적화(`image_utils.py`), 파일 미러링(`file_utils.py`)
   - `library/`: 폴더 구조 정리(`library_manager.py`), 파일 스캔(`scanner_utils.py`)
-- `run_formatter.bat`: Windows용 실행 스크립트
 
 ## ⚙ 상세 옵션
 - `input`: 입력 디렉토리 경로 (기본: `.`)
