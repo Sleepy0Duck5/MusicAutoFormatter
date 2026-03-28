@@ -35,5 +35,8 @@ def main():
         # Process the entry
         formatter.process_file(f, base_path=base_dir, track_padding=padding)
 
+    # 4. Cleanup and Structuring
+    formatter.finalize_library()
+
 if __name__ == "__main__":
     main()

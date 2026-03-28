@@ -73,6 +73,33 @@ class MetadataManager:
         except Exception:
             return source_path.stem
 
+    def get_album_name(self, source_path: Path) -> str:
+        """
+        Extracts the album name from tags.
+        Fallback to "Unknown Album" if not found.
+        """
+        ext = source_path.suffix.lower()
+        album = ""
+
+        try:
+            if ext == ".flac":
+                audio = FLAC(source_path)
+                album = audio.get("album", [""])[0]
+            elif ext in [".mp3", ".wav"]:
+                try:
+                    tags = ID3(source_path)
+                    album = str(tags.get("TALB", ""))
+                except Exception:
+                    pass
+        except Exception:
+            pass
+            
+        if not album:
+            return "Unknown Album"
+            
+        # Clean for forbidden characters in folder names
+        return "".join(c for c in album if c not in r'\/:*?"<>|').strip()
+
     def apply_metadata(self, source_path: Path, target_path: Path, track_padding: int = 0):
         """
         Copies metadata from source to target, applying padding and image optimization.

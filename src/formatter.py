@@ -8,6 +8,7 @@ from .image_utils import ImageProcessor
 from .file_utils import FileMirror
 from .metadata_processor import MetadataManager
 from .scanner_utils import LibraryScanner
+from .library_manager import LibraryManager
 
 class MusicFormatter:
     def __init__(self, output_dir: str = "output", bitrate: str = "320k", max_art_size: int = 2 * 1024 * 1024):
@@ -22,6 +23,13 @@ class MusicFormatter:
         self.mirror = FileMirror(output_base=self.output_dir)
         self.metadata_manager = MetadataManager(self.padding_manager, self.image_processor)
         self.scanner = LibraryScanner(exclude_dirs=[str(self.output_dir.resolve())])
+        self.library_manager = LibraryManager(self.output_dir, self.metadata_manager)
+
+    def finalize_library(self):
+        """
+        Finalizing the library structure using the dedicated LibraryManager.
+        """
+        self.library_manager.finalize_structure()
 
     def process_file(self, file_path: Path, base_path: Optional[Path] = None, track_padding: int = 0):
         ext = file_path.suffix.lower()
@@ -45,8 +53,6 @@ class MusicFormatter:
             target_path = self.output_dir / relative_dir / target_filename
         else:
             target_path = self.output_dir / target_filename
-            
-        target_path.parent.mkdir(parents=True, exist_ok=True)
             
         target_path.parent.mkdir(parents=True, exist_ok=True)
         
