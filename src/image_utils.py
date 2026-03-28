@@ -13,38 +13,43 @@ class ImageProcessor:
 
     def process_cover(self, data: bytes) -> (bytes, str):
         """
-        Processes image data. Resizes and optimizes if the file size exceeds max_filesize.
-        Returns (processed_data, mime_type).
+        Processes image data. Standardizes everything to JPEG/PNG for player compatibility.
+        Resizes and optimizes if the file size exceeds max_filesize.
         """
-        # Return as is if small enough
-        if len(data) <= self.max_filesize:
-            logger.debug(f"Cover art size ({len(data)} bytes) within limits. Skipping optimization.")
-            return data, "image/jpeg" 
-            
         try:
-            logger.info(f"Cover art ({len(data)} bytes) exceeds limit. Optimizing and resizing to {self.target_size}...")
             img = Image.open(BytesIO(data))
             
-            # Ensure proper mode for PNG (RGBA) or JPEG (RGB)
-            if img.mode in ("RGBA", "P"):
+            # 1. Determine target format and MIME
+            # If it's a PNG or has transparency, keep it as PNG.
+            # Otherwise, use JPEG (most compact & compatible).
+            if img.mode in ("RGBA", "P", "LA"):
+                target_format = "PNG"
+                target_mime = "image/png"
                 img = img.convert("RGBA")
-                fmt = "PNG"
-                mime = "image/png"
             else:
+                target_format = "JPEG"
+                target_mime = "image/jpeg"
                 img = img.convert("RGB")
-                fmt = "JPEG"
-                mime = "image/jpeg"
+
+            # 2. Check if we need optimization (either format mismatch or size limit)
+            # WebP, JFIF, or over-sized files should be re-saved.
+            needs_resave = (img.format not in ("JPEG", "PNG")) or (len(data) > self.max_filesize)
+            
+            if not needs_resave:
+                logger.debug(f"Cover art ({len(data)} bytes) is within limits and compatible.")
+                return data, target_mime
                 
-            # Resize
+            # 3. Optimize and resize
+            logger.info(f"Processing cover art ({len(data)} bytes)... Target: {target_format}")
             img.thumbnail(self.target_size, Image.Resampling.LANCZOS)
             
-            # Save to buffer
             out_buf = BytesIO()
-            img.save(out_buf, format=fmt, optimize=True)
+            img.save(out_buf, format=target_format, optimize=True)
             processed_data = out_buf.getvalue()
+            
             logger.info(f"Optimization complete. New size: {len(processed_data)} bytes.")
-            return processed_data, mime
+            return processed_data, target_mime
             
         except Exception as e:
-            logger.warning(f"Image processing failed: {e}. Using original.")
+            logger.warning(f"Image processing failed: {e}. Falling back to default.")
             return data, "image/jpeg"
