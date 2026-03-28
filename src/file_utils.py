@@ -7,13 +7,14 @@ class FileMirror:
     """
     Handles file mirroring and specific file renaming rules (e.g., .m3u to .m3u.bak).
     """
-    def __init__(self, output_base: Path):
+    def __init__(self, output_base: Path, backup_m3u: bool = False):
         self.output_base = output_base
+        self.backup_m3u = backup_m3u
 
     def mirror_file(self, file_path: Path, base_path: Optional[Path] = None) -> bool:
         """
         Copies a file to the output directory while maintaining relative structure.
-        Renames .m3u files to .m3u.bak.
+        Optionally renames .m3u files to .m3u.bak.
         """
         try:
             if base_path:
@@ -22,8 +23,8 @@ class FileMirror:
             else:
                 target_path = self.output_base / file_path.name
             
-            # Rename .m3u to .m3u.bak as per requirements
-            if target_path.suffix.lower() == ".m3u":
+            # Optionally rename .m3u to .m3u.bak
+            if self.backup_m3u and target_path.suffix.lower() == ".m3u":
                 target_path = target_path.with_suffix(target_path.suffix + ".bak")
                 
             target_path.parent.mkdir(parents=True, exist_ok=True)

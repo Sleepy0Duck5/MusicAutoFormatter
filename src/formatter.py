@@ -17,7 +17,7 @@ from .constants import (
 )
 
 class MusicFormatter:
-    def __init__(self, output_dir: str = "output", bitrate: str = DEFAULT_BITRATE, max_art_size: int = DEFAULT_MAX_ART_SIZE, delete_source: bool = True):
+    def __init__(self, output_dir: str = "output", bitrate: str = DEFAULT_BITRATE, max_art_size: int = DEFAULT_MAX_ART_SIZE, delete_source: bool = True, backup_m3u: bool = False):
         self.output_dir = Path(output_dir)
         if self.output_dir.exists():
             raise FileExistsError(f"[!] Output destination '{output_dir}' already exists. Please remove it or choose a different name.")
@@ -27,7 +27,7 @@ class MusicFormatter:
         self.padding_manager = TrackPaddingManager(min_padding=DEFAULT_TRACK_PADDING)
         self.converter = AudioConverter(bitrate=bitrate)
         self.image_processor = ImageProcessor(target_size=DEFAULT_TARGET_IMAGE_SIZE, max_filesize=max_art_size)
-        self.mirror = FileMirror(output_base=self.output_dir)
+        self.mirror = FileMirror(output_base=self.output_dir, backup_m3u=backup_m3u)
         self.metadata_manager = MetadataManager(self.padding_manager, self.image_processor)
         self.scanner = LibraryScanner(exclude_dirs=[str(self.output_dir.resolve())])
         self.library_manager = LibraryManager(self.output_dir, self.metadata_manager)

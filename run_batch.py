@@ -12,6 +12,7 @@ def main():
     parser.add_argument("-o", "--output", default="output", help="Base output directory (default: output)")
     parser.add_argument("-b", "--bitrate", default=DEFAULT_BITRATE, help=f"Target bitrate (default: {DEFAULT_BITRATE})")
     parser.add_argument("--keep-source", action="store_false", dest="delete_source", default=True, help="Keep source files after successful processing")
+    parser.add_argument("--backup-m3u", action="store_true", default=False, help="Backup .m3u files by renaming to .m3u.bak (default: False)")
     
     args = parser.parse_args()
     
@@ -44,7 +45,7 @@ def main():
 
         try:
             # 1. Create formatter for this album
-            formatter = MusicFormatter(output_dir=str(album_output), bitrate=args.bitrate, delete_source=args.delete_source)
+            formatter = MusicFormatter(output_dir=str(album_output), bitrate=args.bitrate, delete_source=args.delete_source, backup_m3u=args.backup_m3u)
             
             # 2. Scan files in this album folder
             files_to_process = formatter.scanner.scan(album_dir)

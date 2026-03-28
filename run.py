@@ -11,6 +11,7 @@ def main():
     parser.add_argument("-o", "--output", default="output", help="Output directory (default: output)")
     parser.add_argument("-b", "--bitrate", default=DEFAULT_BITRATE, help=f"Target bitrate (default: {DEFAULT_BITRATE})")
     parser.add_argument("--keep-source", action="store_false", dest="delete_source", default=True, help="Keep source files after successful processing")
+    parser.add_argument("--backup-m3u", action="store_true", default=False, help="Backup .m3u files by renaming to .m3u.bak (default: False)")
     
     args = parser.parse_args()
     
@@ -29,7 +30,7 @@ def main():
 
     try:
         # Create the formatter orchestrator
-        formatter = MusicFormatter(output_dir=str(final_output), bitrate=args.bitrate, delete_source=args.delete_source)
+        formatter = MusicFormatter(output_dir=str(final_output), bitrate=args.bitrate, delete_source=args.delete_source, backup_m3u=args.backup_m3u)
     except FileExistsError as e:
         logger.error(str(e))
         return
