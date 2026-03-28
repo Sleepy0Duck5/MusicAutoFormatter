@@ -1,5 +1,4 @@
 import argparse
-import sys
 from pathlib import Path
 from loguru import logger
 from src.formatter import MusicFormatter

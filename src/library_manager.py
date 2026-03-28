@@ -2,7 +2,6 @@ import os
 import re
 from pathlib import Path
 from collections import Counter
-from typing import Optional
 from loguru import logger
 
 class LibraryManager:
@@ -71,6 +70,6 @@ class LibraryManager:
             try:
                 logger.info(f"Renaming folder: {target_to_rename.name} -> {dominant_album}")
                 target_to_rename.rename(new_path)
-            except Exception as e:
+            except Exception:
                 # Silently skip if files are locked or permissions are lacking
                 pass
