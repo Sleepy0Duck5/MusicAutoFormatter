@@ -32,6 +32,12 @@ class MusicFormatter:
         self.scanner = LibraryScanner(exclude_dirs=[str(self.output_dir.resolve())])
         self.library_manager = LibraryManager(self.output_dir, self.metadata_manager)
 
+    def prepare_album(self, files: list[Path]):
+        """
+        Gathers album-wide metadata to ensure consistency across all tracks.
+        """
+        self.metadata_manager.analyze_album(files)
+
     def finalize_library(self, source_path: Optional[Path] = None):
         """
         Finalizing the library structure and cleaning up empty source folders.

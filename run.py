@@ -43,6 +43,10 @@ def main():
         return
 
     logger.info(f"Found {len(files_to_process)} entries. Starting process...")
+    
+    # 3. Analyze album for consolidated metadata
+    formatter.prepare_album(files_to_process)
+    
     for f in files_to_process:
         base_dir = input_path if input_path.is_dir() else None
         

@@ -3,13 +3,17 @@ from typing import Optional
 import mutagen
 from mutagen.id3 import ID3, APIC, TIT2, TPE1, TPE2, TALB, TYER, TCON, ID3NoHeaderError
 from mutagen.flac import FLAC
-from loguru import logger
-from .constants import COVER_SEARCH_NAMES, IMAGE_EXTENSIONS, UNKNOWN_ALBUM
+
+from .constants import UNKNOWN_ALBUM
+from .metadata_analyzer import AlbumAnalyzer
+from .cover_finder import CoverArtFinder
 
 class MetadataManager:
     """
-    Handles robust metadata cloning and translation between audio formats.
+    Orchestrates metadata extraction, consolidation, and application.
+    Delegates analysis to AlbumAnalyzer and image search to CoverArtFinder.
     """
+    # Mapper between Vorbis (FLAC) keys and ID3 frames
     VORBIS_TO_ID3 = {
         "title": TIT2,
         "artist": TPE1,
@@ -28,12 +32,15 @@ class MetadataManager:
     def __init__(self, padding_manager, image_processor):
         self.padding_manager = padding_manager
         self.image_processor = image_processor
+        self.analyzer = AlbumAnalyzer()
+        self.cover_finder = CoverArtFinder()
+
+    def analyze_album(self, files: list[Path]):
+        """Delegates album-wide analysis to the specialized analyzer."""
+        self.analyzer.analyze(files)
 
     def get_formatted_filename(self, source_path: Path, track_padding: int = 0) -> str:
-        """
-        Extracts track and title to form a filename like "01. My Song".
-        Fallback to original filename if tags are missing.
-        """
+        """Extracts track and title to form a standardized filename like '01. My Song'."""
         track = ""
         title = ""
         ext = source_path.suffix.lower()
@@ -52,10 +59,9 @@ class MetadataManager:
                     pass
 
             if not track:
-                # If tags empty, try generic File (for RIFF tags etc.)
                 audio = mutagen.File(source_path)
-                if audio and audio.tags:
-                    # Generic mapping is hard, fallback to stem if no luck
+                if audio and hasattr(audio, 'tags') and audio.tags:
+                    # Fallback generic metadata extraction if needed
                     pass
 
             if track:
@@ -64,22 +70,16 @@ class MetadataManager:
             if not title:
                 title = source_path.stem
             
-            # Clean for forbidden characters in filenames
-            # Remove / \ : * ? " < > |
+            # Sanitization
             clean_title = "".join(c for c in title if c not in r'\/:*?"<>|').strip()
             
-            if track:
-                return f"{track}. {clean_title}"
-            return clean_title
+            return f"{track}. {clean_title}" if track else clean_title
             
         except Exception:
             return source_path.stem
 
     def get_album_name(self, source_path: Path) -> str:
-        """
-        Extracts the album name from tags.
-        Fallback to UNKNOWN_ALBUM if not found.
-        """
+        """Extracts and sanitizes the album name from tags."""
         ext = source_path.suffix.lower()
         album = ""
 
@@ -96,145 +96,81 @@ class MetadataManager:
         except Exception:
             pass
             
-        if not album:
-            return UNKNOWN_ALBUM
-            
-        # Clean for forbidden characters in folder names
+        album = album if album else UNKNOWN_ALBUM
         return "".join(c for c in album if c not in r'\/:*?"<>|').strip()
 
     def apply_metadata(self, source_path: Path, target_path: Path, track_padding: int = 0):
-        """
-        Copies metadata from source to target, applying padding and image optimization.
-        """
+        """Copies and standardizes metadata from source to target MP3."""
         try:
             target_tags = ID3(target_path)
         except ID3NoHeaderError:
             target_tags = ID3()
         
         target_tags.delall("APIC")
-        art_data = None
-        mime_type = "image/jpeg"
+        art_data, mime_type = None, "image/jpeg"
 
+        # 1. Extract from Source
         ext = source_path.suffix.lower()
         if ext == ".flac":
-            source_audio = FLAC(source_path)
-            for key, values in source_audio.items():
-                key_lower = key.lower()
-                if key_lower in self.VORBIS_TO_ID3:
-                    frame_handler = self.VORBIS_TO_ID3[key_lower]
-                    for val in values:
-                        if key_lower == "tracknumber" and track_padding > 0:
-                            val = self.padding_manager.apply_padding(val, track_padding)
-                        
-                        if callable(frame_handler) and not isinstance(frame_handler, type):
-                            target_tags.add(frame_handler(val))
-                        else:
-                            target_tags.add(frame_handler(encoding=3, text=[val]))
-            
-            if source_audio.pictures:
-                art_data = source_audio.pictures[0].data
-                mime_type = source_audio.pictures[0].mime
-        
-        elif ext == ".wav":
-            try:
-                # WAV can contain ID3 tags
-                source_tags = ID3(source_path)
-                for frame_id, frame in source_tags.items():
-                    if not frame_id.startswith("APIC"):
-                        if frame_id == "TRCK" and track_padding > 0:
-                            raw_val = str(frame.text[0])
-                            frame.text = [self.padding_manager.apply_padding(raw_val, track_padding)]
-                        target_tags.add(frame)
-                
-                for frame in source_tags.values():
-                    if isinstance(frame, APIC):
-                        art_data = frame.data
-                        mime_type = frame.mime
-                        break
-            except Exception:
-                # If no ID3, or generic mutagen.File support
-                try:
-                    audio = mutagen.File(source_path)
-                    if audio and audio.tags:
-                        # Some WAVs might have RIFF tags or others, 
-                        # but ID3v2 is standard in many players.
-                        pass 
-                except Exception:
-                    pass
-        
-        elif ext == ".mp3":
-            try:
-                source_tags = ID3(source_path)
-                for frame_id, frame in source_tags.items():
-                    if not frame_id.startswith("APIC"):
-                        if frame_id == "TRCK" and track_padding > 0:
-                            raw_val = str(frame.text[0])
-                            frame.text = [self.padding_manager.apply_padding(raw_val, track_padding)]
-                        target_tags.add(frame)
-                
-                for frame in source_tags.values():
-                    if isinstance(frame, APIC):
-                        art_data = frame.data
-                        mime_type = frame.mime
-                        break
-            except ID3NoHeaderError:
-                pass
+            art_data, mime_type = self._apply_flac_tags(source_path, target_tags, track_padding)
+        elif ext in [".wav", ".mp3"]:
+            art_data, mime_type = self._apply_id3_tags(source_path, target_tags, track_padding)
 
-        # External cover search and image processing is handled via manager dependencies
+        # 2. Cover Art Logic
         if not art_data:
-            art_data, mime_type = self._find_external_cover(source_path)
+            art_data, mime_type = self.cover_finder.find(source_path)
 
         if art_data:
             art_data, mime_type = self.image_processor.process_cover(art_data)
-            target_tags.add(APIC(
-                encoding=3,
-                mime=mime_type,
-                type=3,
-                desc='Cover',
-                data=art_data
-            ))
+            target_tags.add(APIC(encoding=3, mime=mime_type, type=3, desc='Cover', data=art_data))
         
+        # 3. Finalization & Consolidation
         if "TIT2" not in target_tags:
             target_tags.add(TIT2(encoding=3, text=source_path.stem))
 
+        self._enforce_consolidated_meta(target_tags)
         target_tags.save(target_path, v2_version=3)
 
-    def _find_external_cover(self, source_path: Path) -> (Optional[bytes], str):
-        """
-        Searches for external cover art files in the directory.
-        1. Try exact matches (e.g., cover.jpg)
-        2. Fallback to fuzzy matches (e.g., AlbumArt_Final.png)
-        """
-        directories = [source_path.parent, source_path.parent.parent]
+    def _apply_flac_tags(self, path: Path, target_tags: ID3, padding: int) -> (Optional[bytes], str):
+        audio = FLAC(path)
+        for key, values in audio.items():
+            key_lower = key.lower()
+            if key_lower in self.VORBIS_TO_ID3:
+                handler = self.VORBIS_TO_ID3[key_lower]
+                for val in values:
+                    if key_lower == "tracknumber" and padding > 0:
+                        val = self.padding_manager.apply_padding(val, padding)
+                    
+                    if callable(handler) and not isinstance(handler, type):
+                        target_tags.add(handler(val))
+                    else:
+                        target_tags.add(handler(encoding=3, text=[val]))
         
-        # Phase 1: Exact matches (High priority)
-        for directory in directories:
-            if not directory or directory == Path("."):
-                continue
-            
-            for name in COVER_SEARCH_NAMES:
-                for ext in IMAGE_EXTENSIONS:
-                    cover_path = directory / f"{name}{ext}"
-                    if cover_path.exists():
-                        logger.debug(f"Found external cover art (exact): {cover_path.name}")
-                        mime = "image/png" if ext == ".png" else "image/jpeg"
-                        return cover_path.read_bytes(), mime
-
-        # Phase 2: Fuzzy matches (Low priority - search for keywords in filename)
-        for directory in directories:
-            if not directory or directory == Path("."):
-                continue
-            
-            try:
-                # Find the first image file that contains one of the keywords
-                for item in directory.iterdir():
-                    if item.is_file() and item.suffix.lower() in IMAGE_EXTENSIONS:
-                        lower_name = item.stem.lower()
-                        if any(kw in lower_name for kw in COVER_SEARCH_NAMES):
-                            logger.debug(f"Found external cover art (fuzzy): {item.name}")
-                            mime = "image/png" if item.suffix.lower() == ".png" else "image/jpeg"
-                            return item.read_bytes(), mime
-            except Exception:
-                pass
-
+        if audio.pictures:
+            return audio.pictures[0].data, audio.pictures[0].mime
         return None, "image/jpeg"
+
+    def _apply_id3_tags(self, path: Path, target_tags: ID3, padding: int) -> (Optional[bytes], str):
+        art_data, mime = None, "image/jpeg"
+        try:
+            source_tags = ID3(path)
+            for frame_id, frame in source_tags.items():
+                if frame_id.startswith("APIC"):
+                    art_data, mime = frame.data, frame.mime
+                    continue
+                
+                if frame_id == "TRCK" and padding > 0:
+                    raw_val = str(frame.text[0])
+                    frame.text = [self.padding_manager.apply_padding(raw_val, padding)]
+                target_tags.add(frame)
+        except Exception:
+            pass
+        return art_data, mime
+
+    def _enforce_consolidated_meta(self, target_tags: ID3):
+        """Standardizes Album, Artist, Year, Genre based on analysis."""
+        mapping = {"TALB": TALB, "TPE2": TPE2, "TYER": TYER, "TCON": TCON}
+        for frame_id, cls in mapping.items():
+            val = self.analyzer.get_value(frame_id)
+            if val:
+                target_tags.add(cls(encoding=3, text=val))

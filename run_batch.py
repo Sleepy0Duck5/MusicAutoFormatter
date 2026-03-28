@@ -56,6 +56,9 @@ def main():
             
             logger.info(f"Items to process in album: {len(files_to_process)}")
             
+            # 2.1 Analyze album first for consolidated metadata
+            formatter.prepare_album(files_to_process)
+            
             # 3. Process each file
             for f in files_to_process:
                 padding = formatter.padding_manager.get_padding_for_dir(f.parent)
