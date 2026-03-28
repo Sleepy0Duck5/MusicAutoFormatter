@@ -23,6 +23,22 @@
 
 ### 5. 구조 및 자원 관리
 - **커스텀 폴더명 앨범 강제 지정**: `--use-folder-as-album` 옵션을 사용하면 파일 내부의 오리지널 태그 대신, 사용자가 임의로 지정한 **상위 폴더명**을 앨범 태그(`TALB`)로 강제 주입하고, 구조를 깔끔하게 다듬어서(최상위 앨범 폴더 병합) 정리합니다.
+  ```text
+  [Before] (태그: Original_Album_Name)
+  input/
+  └── My Best Selection/             <-- (Custom Album Name)
+      └── Original_Album_Name/       <-- (불필요한 하위 폴더)
+          ├── Disc 1/
+          │   └── 01. track.flac
+          └── cover.jpg
+  
+  [After] (태그 강제 변경: My Best Selection)
+  output/
+  └── My Best Selection/             <-- (직관적인 폴더 구조로 병합)
+      ├── Disc 1/
+      │   └── 01. track.mp3          
+      └── cover.jpg
+  ```
 - **디렉토리 유지**: 입력 폴더의 전체 구조(`Disc 1/`, `Disc 2/` 등)를 출력 폴더에서도 그대로 재현합니다.
 - **비음악 파일 보존**: 가사집(PDF), 텍스트(TXT), 이미지(JPG) 등 모든 비음악 파일을 자동으로 복사하여 라이브러리 무결성을 유지합니다.
 - **선택적 M3U 백업**: `--backup-m3u` 옵션을 통해 `.m3u` 파일을 `.m3u.bak`으로 이름을 변경하여 안전하게 백업할 수 있습니다.
