@@ -3,6 +3,7 @@ import re
 from pathlib import Path
 from collections import Counter
 from typing import Optional
+from loguru import logger
 
 class LibraryManager:
     """
@@ -22,7 +23,7 @@ class LibraryManager:
         Walks the output directory and renames folders to match album titles.
         Respects existing Disc/CD hierarchies.
         """
-        print("\n[*] Finalizing library structure...")
+        logger.info("Finalizing library structure...")
         
         # Bottom-up walk is critical to avoid invalidating parent paths during rename
         for root, dirs, files in os.walk(self.output_dir, topdown=False):
@@ -64,11 +65,11 @@ class LibraryManager:
 
             # Prevent overwriting existing folders
             if new_path.exists():
-                # print(f"[i] Folder '{dominant_album}' already exists. Skipping rename for '{target_to_rename.name}'.")
+                # logger.debug(f"Folder '{dominant_album}' already exists. Skipping rename for '{target_to_rename.name}'.")
                 continue
             
             try:
-                print(f"[*] Renaming folder: {target_to_rename.name} -> {dominant_album}")
+                logger.info(f"Renaming folder: {target_to_rename.name} -> {dominant_album}")
                 target_to_rename.rename(new_path)
             except Exception as e:
                 # Silently skip if files are locked or permissions are lacking

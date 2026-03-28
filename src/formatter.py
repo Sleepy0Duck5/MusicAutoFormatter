@@ -1,7 +1,6 @@
-# Music Library Orchestrator
 from pathlib import Path
 from typing import Optional
-
+from loguru import logger
 from .metadata_utils import TrackPaddingManager
 from .audio_utils import AudioConverter
 from .image_utils import ImageProcessor
@@ -41,7 +40,7 @@ class MusicFormatter:
             self.mirror.mirror_file(file_path, base_path)
 
     def _convert_and_tag(self, file_path: Path, base_path: Optional[Path] = None, track_padding: int = 0):
-        print(f"[*] Processing: {file_path.name}")
+        logger.info(f"Processing: {file_path.name}")
         
         # 2. Get standardized filename: "01. My Song"
         formatted_name = self.metadata_manager.get_formatted_filename(file_path, track_padding)
@@ -58,11 +57,11 @@ class MusicFormatter:
         
         # 1. Convert to MP3
         if not self.converter.convert_to_mp3(file_path, target_path):
-            print(f"[!] Failed to convert {file_path.name}")
+            logger.error(f"Failed to convert {file_path.name}")
             return
 
         # 2. Extract and Process Metadata/Album Art
         self.metadata_manager.apply_metadata(file_path, target_path, track_padding)
-        print(f"[+] Done: {target_path.name}")
+        logger.success(f"Done: {target_path.name}")
 
 

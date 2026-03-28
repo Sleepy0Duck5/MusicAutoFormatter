@@ -1,6 +1,9 @@
 import argparse
+import sys
 from pathlib import Path
+from loguru import logger
 from src.formatter import MusicFormatter
+from src.logger_config import setup_logger
 
 def main():
     parser = argparse.ArgumentParser(description="Music Auto Formatter & Tagger")
@@ -13,6 +16,9 @@ def main():
     input_path = Path(args.input)
     output_base = Path(args.output)
     
+    # Setup logger in the base output directory
+    setup_logger(output_base)
+    
     # If input is a directory, treat it as a single-item batch and put it into 
     # a subdirectory of output, allowing LibraryManager to rename it later.
     if input_path.is_dir():
@@ -24,16 +30,17 @@ def main():
         # Create the formatter orchestrator
         formatter = MusicFormatter(output_dir=str(final_output), bitrate=args.bitrate)
     except FileExistsError as e:
-        print(f"[!] {e}")
+        logger.error(str(e))
         return
+    
     # Scan files using the scanner within the orchestrator
     files_to_process = formatter.scanner.scan(input_path)
     
     if not files_to_process:
-        print(f"[-] No files found at '{input_path.resolve()}' to process.")
+        logger.warning(f"No files found at '{input_path.resolve()}' to process.")
         return
 
-    print(f"[*] Found {len(files_to_process)} entries. Starting batch process...")
+    logger.info(f"Found {len(files_to_process)} entries. Starting process...")
     for f in files_to_process:
         base_dir = input_path if input_path.is_dir() else None
         
@@ -45,6 +52,7 @@ def main():
 
     # 4. Cleanup and Structuring
     formatter.finalize_library()
+    logger.success("Formatting completed successfully.")
 
 if __name__ == "__main__":
     main()

@@ -1,6 +1,7 @@
 import shutil
 from pathlib import Path
 from typing import Optional
+from loguru import logger
 
 class FileMirror:
     """
@@ -25,5 +26,5 @@ class FileMirror:
             target_path = target_path.with_suffix(target_path.suffix + ".bak")
             
         target_path.parent.mkdir(parents=True, exist_ok=True)
-        print(f"[*] Copying as asset: {file_path.name}")
+        logger.debug(f"Copying as asset: {file_path.name}")
         shutil.copy2(file_path, target_path)

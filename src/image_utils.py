@@ -1,5 +1,6 @@
 from io import BytesIO
 from PIL import Image
+from loguru import logger
 
 class ImageProcessor:
     """
@@ -40,5 +41,5 @@ class ImageProcessor:
             return out_buf.getvalue(), mime
             
         except Exception as e:
-            print(f"    [!] Warning: Image processing failed: {e}. Using original.")
+            logger.warning(f"Image processing failed: {e}. Using original.")
             return data, "image/jpeg"

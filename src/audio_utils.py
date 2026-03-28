@@ -1,6 +1,7 @@
 import subprocess
 from pathlib import Path
 from typing import Optional
+from loguru import logger
 
 class AudioConverter:
     """
@@ -24,12 +25,12 @@ class AudioConverter:
         ]
         
         try:
-            print(f"    [i] Converting {input_path.name} to MP3...")
+            logger.debug(f"Converting {input_path.name} to MP3...")
             subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             return True
         except subprocess.CalledProcessError as e:
-            print(f"    [!] FFmpeg error during conversion of {input_path.name}: {e}")
+            logger.error(f"FFmpeg error during conversion of {input_path.name}: {e}")
             return False
         except FileNotFoundError:
-            print("    [!] FFmpeg not found. Please ensure it is installed and in your system PATH.")
+            logger.critical("FFmpeg not found. Please ensure it is installed and in your system PATH.")
             return False
