@@ -3,6 +3,7 @@ import re
 from pathlib import Path
 from collections import Counter
 from loguru import logger
+from .constants import GENERIC_FOLDER_REGEX
 
 class LibraryManager:
     """
@@ -11,7 +12,7 @@ class LibraryManager:
     """
     # Patterns for folders that should be preserved (e.g., multidisc sets)
     # We rename their parents instead of themselves.
-    GENERIC_FOLDER_RE = re.compile(r'^(disc|cd|vol|track|volume|part|d)\s?\d+$', re.I)
+    GENERIC_FOLDER_RE = re.compile(GENERIC_FOLDER_REGEX, re.I)
 
     def __init__(self, output_dir: Path, metadata_manager):
         self.output_dir = output_dir

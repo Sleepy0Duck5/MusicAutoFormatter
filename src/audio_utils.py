@@ -1,12 +1,13 @@
 import subprocess
 from pathlib import Path
 from loguru import logger
+from .constants import DEFAULT_BITRATE
 
 class AudioConverter:
     """
     Handles audio format conversion using FFmpeg.
     """
-    def __init__(self, bitrate: str = "320k"):
+    def __init__(self, bitrate: str = DEFAULT_BITRATE):
         self.bitrate = bitrate
 
     def convert_to_mp3(self, input_path: Path, output_path: Path) -> bool:

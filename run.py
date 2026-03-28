@@ -3,12 +3,13 @@ from pathlib import Path
 from loguru import logger
 from src.formatter import MusicFormatter
 from src.logger_config import setup_logger
+from src.constants import DEFAULT_BITRATE
 
 def main():
     parser = argparse.ArgumentParser(description="Music Auto Formatter & Tagger")
     parser.add_argument("input", nargs="?", default=".", help="Input directory (default: current)")
     parser.add_argument("-o", "--output", default="output", help="Output directory (default: output)")
-    parser.add_argument("-b", "--bitrate", default="320k", help="Target bitrate (default: 320k)")
+    parser.add_argument("-b", "--bitrate", default=DEFAULT_BITRATE, help=f"Target bitrate (default: {DEFAULT_BITRATE})")
     parser.add_argument("--keep-source", action="store_false", dest="delete_source", default=True, help="Keep source files after successful processing")
     
     args = parser.parse_args()

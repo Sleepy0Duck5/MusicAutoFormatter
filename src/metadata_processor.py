@@ -4,6 +4,7 @@ import mutagen
 from mutagen.id3 import ID3, APIC, TIT2, TPE1, TPE2, TALB, TYER, TCON, ID3NoHeaderError
 from mutagen.flac import FLAC
 from loguru import logger
+from .constants import COVER_SEARCH_NAMES, IMAGE_EXTENSIONS, UNKNOWN_ALBUM
 
 class MetadataManager:
     """
@@ -77,7 +78,7 @@ class MetadataManager:
     def get_album_name(self, source_path: Path) -> str:
         """
         Extracts the album name from tags.
-        Fallback to "Unknown Album" if not found.
+        Fallback to UNKNOWN_ALBUM if not found.
         """
         ext = source_path.suffix.lower()
         album = ""
@@ -96,7 +97,7 @@ class MetadataManager:
             pass
             
         if not album:
-            return "Unknown Album"
+            return UNKNOWN_ALBUM
             
         # Clean for forbidden characters in folder names
         return "".join(c for c in album if c not in r'\/:*?"<>|').strip()
@@ -199,14 +200,12 @@ class MetadataManager:
         target_tags.save(target_path, v2_version=3)
 
     def _find_external_cover(self, source_path: Path) -> (Optional[bytes], str):
-        cover_names = ["cover", "folder", "front", "album"]
-        extensions = [".jpg", ".jpeg", ".png"]
-        
         for directory in [source_path.parent, source_path.parent.parent]:
-            if not directory or directory == Path("."): continue
+            if not directory or directory == Path("."):
+                continue
             
-            for name in cover_names:
-                for ext in extensions:
+            for name in COVER_SEARCH_NAMES:
+                for ext in IMAGE_EXTENSIONS:
                     cover_path = directory / f"{name}{ext}"
                     if cover_path.exists():
                         logger.debug(f"Found external cover art: {cover_path.name}")

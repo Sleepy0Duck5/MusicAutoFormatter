@@ -8,18 +8,25 @@ from .file_utils import FileMirror
 from .metadata_processor import MetadataManager
 from .scanner_utils import LibraryScanner
 from .library_manager import LibraryManager
+from .constants import (
+    DEFAULT_BITRATE,
+    DEFAULT_MAX_ART_SIZE,
+    DEFAULT_TARGET_IMAGE_SIZE,
+    DEFAULT_TRACK_PADDING,
+    MUSIC_EXTENSIONS,
+)
 
 class MusicFormatter:
-    def __init__(self, output_dir: str = "output", bitrate: str = "320k", max_art_size: int = 2 * 1024 * 1024, delete_source: bool = True):
+    def __init__(self, output_dir: str = "output", bitrate: str = DEFAULT_BITRATE, max_art_size: int = DEFAULT_MAX_ART_SIZE, delete_source: bool = True):
         self.output_dir = Path(output_dir)
         if self.output_dir.exists():
             raise FileExistsError(f"[!] Output destination '{output_dir}' already exists. Please remove it or choose a different name.")
         
         self.output_dir.mkdir(parents=True)
         self.delete_source = delete_source
-        self.padding_manager = TrackPaddingManager(min_padding=2)
+        self.padding_manager = TrackPaddingManager(min_padding=DEFAULT_TRACK_PADDING)
         self.converter = AudioConverter(bitrate=bitrate)
-        self.image_processor = ImageProcessor(target_size=(800, 800), max_filesize=max_art_size)
+        self.image_processor = ImageProcessor(target_size=DEFAULT_TARGET_IMAGE_SIZE, max_filesize=max_art_size)
         self.mirror = FileMirror(output_base=self.output_dir)
         self.metadata_manager = MetadataManager(self.padding_manager, self.image_processor)
         self.scanner = LibraryScanner(exclude_dirs=[str(self.output_dir.resolve())])
@@ -56,10 +63,9 @@ class MusicFormatter:
 
     def process_file(self, file_path: Path, base_path: Optional[Path] = None, track_padding: int = 0):
         ext = file_path.suffix.lower()
-        music_extensions = [".flac", ".wav", ".mp3"]
         
         success = False
-        if ext in music_extensions:
+        if ext in MUSIC_EXTENSIONS:
             success = self._convert_and_tag(file_path, base_path, track_padding)
         else:
             success = self.mirror.mirror_file(file_path, base_path)

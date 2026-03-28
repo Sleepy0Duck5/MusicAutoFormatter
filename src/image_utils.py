@@ -1,12 +1,13 @@
 from io import BytesIO
 from PIL import Image
 from loguru import logger
+from .constants import DEFAULT_MAX_ART_SIZE, DEFAULT_TARGET_IMAGE_SIZE
 
 class ImageProcessor:
     """
     Handles image optimization and resizing for album covers.
     """
-    def __init__(self, target_size: tuple = (800, 800), max_filesize: int = 2 * 1024 * 1024):
+    def __init__(self, target_size: tuple = DEFAULT_TARGET_IMAGE_SIZE, max_filesize: int = DEFAULT_MAX_ART_SIZE):
         self.target_size = target_size
         self.max_filesize = max_filesize
 

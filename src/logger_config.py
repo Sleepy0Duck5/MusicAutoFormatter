@@ -2,6 +2,14 @@ import sys
 from datetime import datetime
 from pathlib import Path
 from loguru import logger
+from .constants import (
+    LOG_COMPRESSION,
+    LOG_FILENAME_PREFIX,
+    LOG_FORMAT_CONSOLE,
+    LOG_FORMAT_FILE,
+    LOG_RETENTION,
+    LOG_ROTATION,
+)
 
 def setup_logger(output_dir: Path):
     """
@@ -18,22 +26,22 @@ def setup_logger(output_dir: Path):
     # Add console handler with clean format
     logger.add(
         sys.stderr,
-        format="<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level: <8}</level> | <cyan>{message}</cyan>",
+        format=LOG_FORMAT_CONSOLE,
         level="INFO"
     )
     
     # Add file handler with dynamic timestamped name
     # Format: music_auto_formatter_YYYYMMDD_HHMMSS.log
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    log_file = output_base / f"music_auto_formatter_{timestamp}.log"
+    log_file = output_base / f"{LOG_FILENAME_PREFIX}_{timestamp}.log"
     
     logger.add(
         log_file,
-        format="{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {message}",
+        format=LOG_FORMAT_FILE,
         level="DEBUG",
-        rotation="10 MB",
-        retention="1 week",
-        compression="zip"
+        rotation=LOG_ROTATION,
+        retention=LOG_RETENTION,
+        compression=LOG_COMPRESSION
     )
     
     logger.info(f"Logging initialized. Log file: {log_file}")

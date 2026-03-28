@@ -4,12 +4,13 @@ from pathlib import Path
 from loguru import logger
 from src.formatter import MusicFormatter
 from src.logger_config import setup_logger
+from src.constants import DEFAULT_BITRATE
 
 def main():
     parser = argparse.ArgumentParser(description="Batch Music Auto Formatter for Multiple Albums")
     parser.add_argument("input", help="Parent directory containing multiple album folders")
     parser.add_argument("-o", "--output", default="output", help="Base output directory (default: output)")
-    parser.add_argument("-b", "--bitrate", default="320k", help="Target bitrate (default: 320k)")
+    parser.add_argument("-b", "--bitrate", default=DEFAULT_BITRATE, help=f"Target bitrate (default: {DEFAULT_BITRATE})")
     parser.add_argument("--keep-source", action="store_false", dest="delete_source", default=True, help="Keep source files after successful processing")
     
     args = parser.parse_args()
