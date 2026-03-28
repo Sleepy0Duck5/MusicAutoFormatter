@@ -17,9 +17,11 @@ class ImageProcessor:
         """
         # Return as is if small enough
         if len(data) <= self.max_filesize:
-            return data, "image/jpeg" # Default to JPEG for safety, or keep original if known
+            logger.debug(f"Cover art size ({len(data)} bytes) within limits. Skipping optimization.")
+            return data, "image/jpeg" 
             
         try:
+            logger.info(f"Cover art ({len(data)} bytes) exceeds limit. Optimizing and resizing to {self.target_size}...")
             img = Image.open(BytesIO(data))
             
             # Ensure proper mode for PNG (RGBA) or JPEG (RGB)
@@ -38,7 +40,9 @@ class ImageProcessor:
             # Save to buffer
             out_buf = BytesIO()
             img.save(out_buf, format=fmt, optimize=True)
-            return out_buf.getvalue(), mime
+            processed_data = out_buf.getvalue()
+            logger.info(f"Optimization complete. New size: {len(processed_data)} bytes.")
+            return processed_data, mime
             
         except Exception as e:
             logger.warning(f"Image processing failed: {e}. Using original.")

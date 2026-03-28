@@ -3,6 +3,7 @@ from typing import Optional, Any
 import mutagen
 from mutagen.id3 import ID3, APIC, TIT2, TPE1, TPE2, TALB, TYER, TCON, ID3NoHeaderError
 from mutagen.flac import FLAC
+from loguru import logger
 
 class MetadataManager:
     """
@@ -208,6 +209,7 @@ class MetadataManager:
                 for ext in extensions:
                     cover_path = directory / f"{name}{ext}"
                     if cover_path.exists():
+                        logger.debug(f"Found external cover art: {cover_path.name}")
                         mime = "image/png" if ext == ".png" else "image/jpeg"
                         return cover_path.read_bytes(), mime
         return None, "image/jpeg"
