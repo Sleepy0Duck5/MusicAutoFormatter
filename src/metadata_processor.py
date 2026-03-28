@@ -200,7 +200,15 @@ class MetadataManager:
         target_tags.save(target_path, v2_version=3)
 
     def _find_external_cover(self, source_path: Path) -> (Optional[bytes], str):
-        for directory in [source_path.parent, source_path.parent.parent]:
+        """
+        Searches for external cover art files in the directory.
+        1. Try exact matches (e.g., cover.jpg)
+        2. Fallback to fuzzy matches (e.g., AlbumArt_Final.png)
+        """
+        directories = [source_path.parent, source_path.parent.parent]
+        
+        # Phase 1: Exact matches (High priority)
+        for directory in directories:
             if not directory or directory == Path("."):
                 continue
             
@@ -208,7 +216,25 @@ class MetadataManager:
                 for ext in IMAGE_EXTENSIONS:
                     cover_path = directory / f"{name}{ext}"
                     if cover_path.exists():
-                        logger.debug(f"Found external cover art: {cover_path.name}")
+                        logger.debug(f"Found external cover art (exact): {cover_path.name}")
                         mime = "image/png" if ext == ".png" else "image/jpeg"
                         return cover_path.read_bytes(), mime
+
+        # Phase 2: Fuzzy matches (Low priority - search for keywords in filename)
+        for directory in directories:
+            if not directory or directory == Path("."):
+                continue
+            
+            try:
+                # Find the first image file that contains one of the keywords
+                for item in directory.iterdir():
+                    if item.is_file() and item.suffix.lower() in IMAGE_EXTENSIONS:
+                        lower_name = item.stem.lower()
+                        if any(kw in lower_name for kw in COVER_SEARCH_NAMES):
+                            logger.debug(f"Found external cover art (fuzzy): {item.name}")
+                            mime = "image/png" if item.suffix.lower() == ".png" else "image/jpeg"
+                            return item.read_bytes(), mime
+            except Exception:
+                pass
+
         return None, "image/jpeg"

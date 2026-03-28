@@ -9,7 +9,7 @@ MUSIC_EXTENSIONS = [".flac", ".wav", ".mp3"]
 # Image Configuration
 DEFAULT_TARGET_IMAGE_SIZE = (800, 800)
 DEFAULT_MAX_ART_SIZE = 2 * 1024 * 1024 # 2MB
-COVER_SEARCH_NAMES = ["cover", "folder", "front", "album"]
+COVER_SEARCH_NAMES = ["cover", "folder", "front", "album", "art"]
 IMAGE_EXTENSIONS = [".jpg", ".jpeg", ".png"]
 
 # Metadata Configuration
