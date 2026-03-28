@@ -10,6 +10,7 @@ def main():
     parser.add_argument("input", nargs="?", default=".", help="Input directory (default: current)")
     parser.add_argument("-o", "--output", default="output", help="Output directory (default: output)")
     parser.add_argument("-b", "--bitrate", default="320k", help="Target bitrate (default: 320k)")
+    parser.add_argument("--keep-source", action="store_false", dest="delete_source", default=True, help="Keep source files after successful processing")
     
     args = parser.parse_args()
     
@@ -28,7 +29,7 @@ def main():
 
     try:
         # Create the formatter orchestrator
-        formatter = MusicFormatter(output_dir=str(final_output), bitrate=args.bitrate)
+        formatter = MusicFormatter(output_dir=str(final_output), bitrate=args.bitrate, delete_source=args.delete_source)
     except FileExistsError as e:
         logger.error(str(e))
         return
@@ -51,7 +52,7 @@ def main():
         formatter.process_file(f, base_path=base_dir, track_padding=padding)
 
     # 4. Cleanup and Structuring
-    formatter.finalize_library()
+    formatter.finalize_library(input_path)
     logger.success("Formatting completed successfully.")
 
 if __name__ == "__main__":

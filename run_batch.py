@@ -10,6 +10,7 @@ def main():
     parser.add_argument("input", help="Parent directory containing multiple album folders")
     parser.add_argument("-o", "--output", default="output", help="Base output directory (default: output)")
     parser.add_argument("-b", "--bitrate", default="320k", help="Target bitrate (default: 320k)")
+    parser.add_argument("--keep-source", action="store_false", dest="delete_source", default=True, help="Keep source files after successful processing")
     
     args = parser.parse_args()
     
@@ -42,7 +43,7 @@ def main():
 
         try:
             # 1. Create formatter for this album
-            formatter = MusicFormatter(output_dir=str(album_output), bitrate=args.bitrate)
+            formatter = MusicFormatter(output_dir=str(album_output), bitrate=args.bitrate, delete_source=args.delete_source)
             
             # 2. Scan files in this album folder
             files_to_process = formatter.scanner.scan(album_dir)
@@ -59,7 +60,7 @@ def main():
                 formatter.process_file(f, base_path=album_dir, track_padding=padding)
 
             # 4. Finalize
-            formatter.finalize_library()
+            formatter.finalize_library(album_dir)
             logger.success(f"Successfully completed album: {album_dir.name}")
 
         except FileExistsError:
