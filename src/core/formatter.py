@@ -17,12 +17,12 @@ from src.core.constants import (
 )
 
 class MusicFormatter:
-    def __init__(self, output_dir: str = "output", bitrate: str = DEFAULT_BITRATE, max_art_size: int = DEFAULT_MAX_ART_SIZE, delete_source: bool = True, backup_m3u: bool = False):
+    def __init__(self, output_dir: str = "output", bitrate: str = DEFAULT_BITRATE, max_art_size: int = DEFAULT_MAX_ART_SIZE, delete_source: bool = True, backup_m3u: bool = False, create_dir: bool = True):
         self.output_dir = Path(output_dir)
-        if self.output_dir.exists():
-            raise FileExistsError(f"[!] Output destination '{output_dir}' already exists. Please remove it or choose a different name.")
-        
-        self.output_dir.mkdir(parents=True)
+        if create_dir:
+            if self.output_dir.exists():
+                raise FileExistsError(f"[!] Output destination '{output_dir}' already exists. Please remove it or choose a different name.")
+            self.output_dir.mkdir(parents=True)
         self.delete_source = delete_source
         self.padding_manager = TrackPaddingManager(min_padding=DEFAULT_TRACK_PADDING)
         self.converter = AudioConverter(bitrate=bitrate)
@@ -31,6 +31,14 @@ class MusicFormatter:
         self.metadata_manager = MetadataManager(self.padding_manager, self.image_processor)
         self.scanner = LibraryScanner(exclude_dirs=[str(self.output_dir.resolve())])
         self.library_manager = LibraryManager(self.output_dir, self.metadata_manager)
+
+    def create_output_dir(self):
+        """
+        Manually creates the output directory. Performs existence check first.
+        """
+        if self.output_dir.exists():
+            raise FileExistsError(f"Output directory '{self.output_dir}' already exists.")
+        self.output_dir.mkdir(parents=True, exist_ok=True)
 
     def prepare_album(self, files: list[Path]):
         """

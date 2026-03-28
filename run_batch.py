@@ -19,62 +19,81 @@ def main():
     input_base = Path(args.input)
     output_base = Path(args.output)
     
-    # Setup logger in the base output directory
-    setup_logger(output_base)
+    logger_setup = False
     
     if not input_base.is_dir():
-        logger.error(f"Input path '{input_base}' is not a directory.")
-        sys.exit(1)
+        print(f"Error: Input path '{input_base}' is not a directory.")
+        return
 
     # Gather all subdirectories in the input path (each being an individual album)
     album_dirs = [d for d in input_base.iterdir() if d.is_dir()]
     album_dirs.sort()
 
     if not album_dirs:
-        logger.warning(f"No album directories found in '{input_base.resolve()}'.")
+        print(f"Warning: No album directories found in '{input_base.resolve()}'. Skipping.")
         return
-
-    logger.info(f"Found {len(album_dirs)} album directories.")
-    logger.debug(f"Base output path: {output_base.resolve()}")
 
     for album_dir in album_dirs:
         # Define output directory for this specific album
         album_output = output_base / album_dir.name
         
-        logger.info(f"Starting process for album: {album_dir.name}")
-
         try:
-            # 1. Create formatter for this album
-            formatter = MusicFormatter(output_dir=str(album_output), bitrate=args.bitrate, delete_source=args.delete_source, backup_m3u=args.backup_m3u)
+            # 1. Create formatter for this album WITHOUT creating folder
+            formatter = MusicFormatter(
+                output_dir=str(album_output), 
+                bitrate=args.bitrate, 
+                delete_source=args.delete_source, 
+                backup_m3u=args.backup_m3u,
+                create_dir=False
+            )
             
             # 2. Scan files in this album folder
             files_to_process = formatter.scanner.scan(album_dir)
             
             if not files_to_process:
-                logger.warning(f"No valid music files found in '{album_dir.name}'. Skipping.")
+                if not logger_setup:
+                    print(f"Skipping empty: {album_dir.name}")
+                else:
+                    logger.warning(f"No valid music files found in '{album_dir.name}'. Skipping.")
                 continue
             
-            logger.info(f"Items to process in album: {len(files_to_process)}")
+            # 3. Setup logger and output dir if first time having work
+            if not logger_setup:
+                setup_logger(output_base)
+                logger_setup = True
+                logger.info(f"Starting batch processing from: {input_base}")
+                logger.info(f"Found {len(album_dirs)} directories in total.")
+
+            logger.info(f"Processing album: {album_dir.name} ({len(files_to_process)} items)")
             
-            # 2.1 Analyze album first for consolidated metadata
+            try:
+                formatter.create_output_dir()
+            except FileExistsError:
+                logger.warning(f"Output folder '{album_output.name}' already exists. Skipping.")
+                continue
+
+            # 4. Analyze and process
             formatter.prepare_album(files_to_process)
             
-            # 3. Process each file
             for f in files_to_process:
                 padding = formatter.padding_manager.get_padding_for_dir(f.parent)
                 formatter.process_file(f, base_path=album_dir, track_padding=padding)
 
-            # 4. Finalize
+            # 5. Finalize
             formatter.finalize_library(album_dir)
             logger.success(f"Successfully completed album: {album_dir.name}")
 
-        except FileExistsError:
-            logger.warning(f"Output folder '{album_output.name}' already exists. Skipping.")
         except Exception as e:
-            logger.exception(f"Error processing '{album_dir.name}': {e}")
+            if logger_setup:
+                logger.exception(f"Error processing '{album_dir.name}': {e}")
+            else:
+                print(f"Error processing '{album_dir.name}': {e}")
             continue
 
-    logger.info("Batch processing finished.")
+    if logger_setup:
+        logger.info("Batch processing finished.")
+    else:
+        print("Batch processing finished (no files were processed).")
 
 if __name__ == "__main__":
     main()

@@ -18,33 +18,43 @@ def main():
     input_path = Path(args.input)
     output_base = Path(args.output)
     
-    # Setup logger in the base output directory
-    setup_logger(output_base)
-    
-    # If input is a directory, treat it as a single-item batch and put it into 
-    # a subdirectory of output, allowing LibraryManager to rename it later.
+    # 1. Paths calculation (without creating folders yet)
     if input_path.is_dir():
         final_output = output_base / input_path.name
     else:
         final_output = output_base
 
     try:
-        # Create the formatter orchestrator
-        formatter = MusicFormatter(output_dir=str(final_output), bitrate=args.bitrate, delete_source=args.delete_source, backup_m3u=args.backup_m3u)
-    except FileExistsError as e:
-        logger.error(str(e))
+        # 2. Create orchestrator WITHOUT creating folders
+        formatter = MusicFormatter(
+            output_dir=str(final_output), 
+            bitrate=args.bitrate, 
+            delete_source=args.delete_source, 
+            backup_m3u=args.backup_m3u,
+            create_dir=False
+        )
+    except Exception as e:
+        print(f"Error initializing: {e}")
         return
     
-    # Scan files using the scanner within the orchestrator
+    # 3. Scan files
     files_to_process = formatter.scanner.scan(input_path)
     
     if not files_to_process:
-        logger.warning(f"No files found at '{input_path.resolve()}' to process.")
+        print(f"Warning: No files found at '{input_path.resolve()}'. Skipping.")
         return
 
+    # 4. We have work to do, so create output dir and setup logger
+    try:
+        formatter.create_output_dir()
+    except FileExistsError as e:
+        print(f"Error: {e}")
+        return
+
+    setup_logger(output_base)
     logger.info(f"Found {len(files_to_process)} entries. Starting process...")
     
-    # 3. Analyze album for consolidated metadata
+    # 5. Analyze and Process
     formatter.prepare_album(files_to_process)
     
     for f in files_to_process:
