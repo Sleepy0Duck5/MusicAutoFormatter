@@ -39,12 +39,24 @@
 # 1. 의존성 동기화 (최초 1회)
 uv sync
 
-# 2. 프로그램 실행 (현재 폴더 -> output/ 폴더)
-uv run formatter.py
+# 2. 프로그램 실행 (main.py 진입점 사용)
+uv run main.py
 
 # (선택 사항) 특정 폴더 지정 및 비트레이트 설정
-uv run formatter.py "./MyFLACs" -o "./MyMP3s" -b 320k
+uv run main.py "./MyFLACs" -o "./MyMP3s" -b 320k
 ```
+
+## 🏗 프로젝트 구조
+- `main.py`: 프로그램 실행 진입점 (CLI 처리)
+- `src/`: 핵심 로직 패키지
+  - `formatter.py`: 전체 흐름 제어 (Orchestrator)
+  - `audio_utils.py`: 오디오 변환 (FFmpeg)
+  - `metadata_processor.py`: 태그 복제 및 적용 (Mutagen)
+  - `metadata_utils.py`: 트랙 번호 패딩 처리
+  - `image_utils.py`: 앨범 아트 최적화 (Pillow)
+  - `file_utils.py`: 비음악 파일 미러링 및 M3U 처리
+  - `scanner_utils.py`: 파일 재귀 탐색 및 필터링
+- `run_formatter.bat`: Windows용 실행 스크립트
 
 ## ⚙ 상세 옵션
 - `input`: 입력 디렉토리 경로 (기본: `.`)
