@@ -39,15 +39,20 @@
 # 1. 의존성 동기화 (최초 1회)
 uv sync
 
-# 2. 프로그램 실행 (main.py 진입점 사용)
-uv run main.py
+# 2. 프로그램 실행 (run.py 진입점 사용)
+uv run run.py
 
 # (선택 사항) 특정 폴더 지정 및 비트레이트 설정
-uv run main.py "./MyFLACs" -o "./MyMP3s" -b 320k
+uv run run.py "./MyFLACs" -o "./MyMP3s" -b 320k
+
+# 3. 앨범 폴더 일괄 처리 (run_batch.py 사용)
+# 여러 앨범 폴더가 들어있는 부모 폴더를 대상으로 실행
+uv run run_batch.py "./MyAlbums" -o "./FormattedAlbums"
 ```
 
 ## 🏗 프로젝트 구조
-- `main.py`: 프로그램 실행 진입점 (CLI 처리)
+- run.py: 단일 앨범/디렉토리용 진입점 (CLI 처리)
+- run_batch.py: 여러 앨범 폴더 일괄 처리용 진입점
 - `src/`: 핵심 로직 패키지
   - `formatter.py`: 전체 흐름 제어 (Orchestrator)
   - `audio_utils.py`: 오디오 변환 (FFmpeg)

@@ -208,3 +208,9 @@ __marimo__/
 
 # Test Data
 test_data/
+
+# VSCode
+.vscode/
+
+# Agnets
+.agents/
