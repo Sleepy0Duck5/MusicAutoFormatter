@@ -11,15 +11,14 @@ class FileMirror:
         self.output_base = output_base
         self.backup_m3u = backup_m3u
 
-    def mirror_file(self, file_path: Path, base_path: Optional[Path] = None) -> bool:
+    def mirror_file(self, file_path: Path, target_dir: Optional[Path] = None) -> bool:
         """
-        Copies a file to the output directory while maintaining relative structure.
+        Copies a file to the target directory.
         Optionally renames .m3u files to .m3u.bak.
         """
         try:
-            if base_path:
-                relative_path = file_path.relative_to(base_path)
-                target_path = self.output_base / relative_path
+            if target_dir:
+                target_path = target_dir / file_path.name
             else:
                 target_path = self.output_base / file_path.name
             

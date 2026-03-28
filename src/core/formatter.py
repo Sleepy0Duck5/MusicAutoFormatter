@@ -17,8 +17,9 @@ from src.core.constants import (
 )
 
 class MusicFormatter:
-    def __init__(self, output_dir: str = "output", bitrate: str = DEFAULT_BITRATE, max_art_size: int = DEFAULT_MAX_ART_SIZE, delete_source: bool = True, backup_m3u: bool = False, create_dir: bool = True):
+    def __init__(self, output_dir: str = "output", bitrate: str = DEFAULT_BITRATE, max_art_size: int = DEFAULT_MAX_ART_SIZE, delete_source: bool = True, backup_m3u: bool = False, create_dir: bool = True, use_folder_as_album: bool = False):
         self.output_dir = Path(output_dir)
+        self.use_folder_as_album = use_folder_as_album
         if create_dir:
             if self.output_dir.exists():
                 raise FileExistsError(f"[!] Output destination '{output_dir}' already exists. Please remove it or choose a different name.")
@@ -46,6 +47,10 @@ class MusicFormatter:
         """
         self.metadata_manager.analyze_album(files)
         
+        # Override album tag if requested
+        if self.use_folder_as_album:
+            self.metadata_manager.analyzer.consolidated["TALB"] = self.output_dir.name
+            
         # Check for early collision: if the final album folder already exists
         dominant_album = self.metadata_manager.analyzer.get_value("TALB")
         if dominant_album:
@@ -93,11 +98,23 @@ class MusicFormatter:
     def process_file(self, file_path: Path, base_path: Optional[Path] = None, track_padding: int = 0):
         ext = file_path.suffix.lower()
         
+        target_dir = self.output_dir
+        if base_path:
+            relative_dir = file_path.parent.relative_to(base_path)
+            # If forcing custom album name, strip the original album's folder level 
+            # while preserving structural folders like 'Disc 1'.
+            if self.use_folder_as_album and len(relative_dir.parts) > 0:
+                first_part = relative_dir.parts[0]
+                if not self.library_manager.GENERIC_FOLDER_RE.match(first_part):
+                    relative_dir = Path(*relative_dir.parts[1:]) if len(relative_dir.parts) > 1 else Path("")
+                    
+            target_dir = self.output_dir / relative_dir
+        
         success = False
         if ext in MUSIC_EXTENSIONS:
-            success = self._convert_and_tag(file_path, base_path, track_padding)
+            success = self._convert_and_tag(file_path, target_dir, track_padding)
         else:
-            success = self.mirror.mirror_file(file_path, base_path)
+            success = self.mirror.mirror_file(file_path, target_dir)
             
         if success and self.delete_source:
             try:
@@ -106,7 +123,7 @@ class MusicFormatter:
             except Exception as e:
                 logger.error(f"Failed to delete source file {file_path.name}: {e}")
 
-    def _convert_and_tag(self, file_path: Path, base_path: Optional[Path] = None, track_padding: int = 0) -> bool:
+    def _convert_and_tag(self, file_path: Path, target_dir: Optional[Path] = None, track_padding: int = 0) -> bool:
         logger.info(f"Processing: {file_path.name}")
         
         # 2. Get standardized filename: "01. My Song"
@@ -114,9 +131,8 @@ class MusicFormatter:
         target_filename = formatted_name + ".mp3"
 
         # 3. Resolve target path preserving original hierarchy
-        if base_path:
-            relative_dir = file_path.parent.relative_to(base_path)
-            target_path = self.output_dir / relative_dir / target_filename
+        if target_dir:
+            target_path = target_dir / target_filename
         else:
             target_path = self.output_dir / target_filename
             
