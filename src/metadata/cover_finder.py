@@ -1,7 +1,7 @@
 from pathlib import Path
 from typing import Optional
 from loguru import logger
-from .constants import COVER_SEARCH_NAMES, IMAGE_EXTENSIONS
+from src.core.constants import COVER_SEARCH_NAMES, IMAGE_EXTENSIONS
 
 class CoverArtFinder:
     """

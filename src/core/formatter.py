@@ -1,14 +1,14 @@
 from pathlib import Path
 from typing import Optional
 from loguru import logger
-from .metadata_utils import TrackPaddingManager
-from .audio_utils import AudioConverter
-from .image_utils import ImageProcessor
-from .file_utils import FileMirror
-from .metadata_processor import MetadataManager
-from .scanner_utils import LibraryScanner
-from .library_manager import LibraryManager
-from .constants import (
+from src.metadata.metadata_utils import TrackPaddingManager
+from src.processing.audio_utils import AudioConverter
+from src.processing.image_utils import ImageProcessor
+from src.processing.file_utils import FileMirror
+from src.metadata.metadata_processor import MetadataManager
+from src.library.scanner_utils import LibraryScanner
+from src.library.library_manager import LibraryManager
+from src.core.constants import (
     DEFAULT_BITRATE,
     DEFAULT_MAX_ART_SIZE,
     DEFAULT_TARGET_IMAGE_SIZE,

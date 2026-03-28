@@ -3,7 +3,7 @@ import re
 from pathlib import Path
 from collections import Counter
 from loguru import logger
-from .constants import GENERIC_FOLDER_REGEX
+from src.core.constants import GENERIC_FOLDER_REGEX
 
 class LibraryManager:
     """

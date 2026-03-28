@@ -2,7 +2,7 @@ import sys
 from datetime import datetime
 from pathlib import Path
 from loguru import logger
-from .constants import (
+from src.core.constants import (
     LOG_COMPRESSION,
     LOG_FILENAME_PREFIX,
     LOG_FORMAT_CONSOLE,

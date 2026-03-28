@@ -2,9 +2,9 @@ import argparse
 import sys
 from pathlib import Path
 from loguru import logger
-from src.formatter import MusicFormatter
-from src.logger_config import setup_logger
-from src.constants import DEFAULT_BITRATE
+from src.core.formatter import MusicFormatter
+from src.core.logger_config import setup_logger
+from src.core.constants import DEFAULT_BITRATE
 
 def main():
     parser = argparse.ArgumentParser(description="Batch Music Auto Formatter for Multiple Albums")

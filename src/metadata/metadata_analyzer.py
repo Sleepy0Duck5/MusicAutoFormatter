@@ -3,7 +3,7 @@ from pathlib import Path
 from loguru import logger
 from mutagen.flac import FLAC
 from mutagen.id3 import ID3
-from .constants import MUSIC_EXTENSIONS
+from src.core.constants import MUSIC_EXTENSIONS
 
 class AlbumAnalyzer:
     """

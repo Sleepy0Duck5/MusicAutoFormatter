@@ -1,7 +1,7 @@
 from io import BytesIO
 from PIL import Image
 from loguru import logger
-from .constants import DEFAULT_MAX_ART_SIZE, DEFAULT_TARGET_IMAGE_SIZE
+from src.core.constants import DEFAULT_MAX_ART_SIZE, DEFAULT_TARGET_IMAGE_SIZE
 
 class ImageProcessor:
     """

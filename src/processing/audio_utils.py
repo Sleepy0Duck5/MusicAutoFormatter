@@ -1,7 +1,7 @@
 import subprocess
 from pathlib import Path
 from loguru import logger
-from .constants import DEFAULT_BITRATE
+from src.core.constants import DEFAULT_BITRATE
 
 class AudioConverter:
     """

@@ -4,9 +4,9 @@ import mutagen
 from mutagen.id3 import ID3, APIC, TIT2, TPE1, TPE2, TALB, TYER, TCON, ID3NoHeaderError
 from mutagen.flac import FLAC
 
-from .constants import UNKNOWN_ALBUM
-from .metadata_analyzer import AlbumAnalyzer
-from .cover_finder import CoverArtFinder
+from src.core.constants import UNKNOWN_ALBUM
+from src.metadata.metadata_analyzer import AlbumAnalyzer
+from src.metadata.cover_finder import CoverArtFinder
 
 class MetadataManager:
     """
