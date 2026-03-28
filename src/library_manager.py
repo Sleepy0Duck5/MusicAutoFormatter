@@ -28,10 +28,6 @@ class LibraryManager:
         for root, dirs, files in os.walk(self.output_dir, topdown=False):
             root_path = Path(root)
             
-            # Don't try to rename the root itself
-            if root_path == self.output_dir:
-                continue
-
             # We only care about folders that contain music
             mp3_files = [f for f in files if f.lower().endswith(".mp3")]
             if not mp3_files:
@@ -59,7 +55,7 @@ class LibraryManager:
                 target_to_rename = root_path.parent
                 
             # Safety checks
-            if target_to_rename == self.output_dir or not target_to_rename.exists():
+            if not target_to_rename.exists():
                 continue
             
             new_path = target_to_rename.parent / dominant_album

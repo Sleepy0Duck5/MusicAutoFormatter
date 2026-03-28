@@ -10,14 +10,22 @@ def main():
     
     args = parser.parse_args()
     
+    input_path = Path(args.input)
+    output_base = Path(args.output)
+    
+    # If input is a directory, treat it as a single-item batch and put it into 
+    # a subdirectory of output, allowing LibraryManager to rename it later.
+    if input_path.is_dir():
+        final_output = output_base / input_path.name
+    else:
+        final_output = output_base
+
     try:
         # Create the formatter orchestrator
-        formatter = MusicFormatter(output_dir=args.output, bitrate=args.bitrate)
+        formatter = MusicFormatter(output_dir=str(final_output), bitrate=args.bitrate)
     except FileExistsError as e:
         print(f"[!] {e}")
         return
-    
-    input_path = Path(args.input)
     # Scan files using the scanner within the orchestrator
     files_to_process = formatter.scanner.scan(input_path)
     
