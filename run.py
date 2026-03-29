@@ -58,7 +58,7 @@ def main():
     
     # 5. Analyze and Process
     formatter.prepare_album(files_to_process)
-    
+    all_success = True
     for f in files_to_process:
         base_dir = input_path if input_path.is_dir() else None
         
@@ -66,11 +66,18 @@ def main():
         padding = formatter.padding_manager.get_padding_for_dir(f.parent)
         
         # Process the entry
-        formatter.process_file(f, base_path=base_dir, track_padding=padding)
+        if not formatter.process_file(f, base_path=base_dir, track_padding=padding):
+            all_success = False
 
-    # 4. Cleanup and Structuring
+    # 4. Atomic Cleanup: Only delete source files if EVERYTHING was successful
+    if all_success and args.delete_source:
+        formatter.delete_source_files(files_to_process)
+    elif not all_success and args.delete_source:
+        logger.warning("Partial failure detected. Source files will NOT be deleted for safety.")
+
+    # 5. Finalize Structure
     formatter.finalize_library(input_path)
-    logger.success("Formatting completed successfully.")
+    logger.success("Formatting completed.")
 
 if __name__ == "__main__":
     main()

@@ -116,10 +116,18 @@ class MusicFormatter:
         else:
             success = self.mirror.mirror_file(file_path, target_dir)
             
-        if success and self.delete_source:
+        return success
+
+    def delete_source_files(self, files: list[Path]):
+        """
+        Bulk deletes a list of source files. Usually called after verifying 
+        that all files in a batch were processed successfully.
+        """
+        for file_path in files:
             try:
-                logger.warning(f"Deleting source file: {file_path.name}")
-                file_path.unlink()
+                if file_path.exists():
+                    logger.warning(f"Deleting source file: {file_path.name}")
+                    file_path.unlink()
             except Exception as e:
                 logger.error(f"Failed to delete source file {file_path.name}: {e}")
 
@@ -144,8 +152,12 @@ class MusicFormatter:
             return False
 
         # 2. Extract and Process Metadata/Album Art
-        self.metadata_manager.apply_metadata(file_path, target_path, track_padding)
-        logger.success(f"Done: {target_path.name}")
-        return True
+        try:
+            self.metadata_manager.apply_metadata(file_path, target_path, track_padding)
+            logger.success(f"Done: {target_path.name}")
+            return True
+        except Exception as e:
+            logger.error(f"Failed to apply metadata for {file_path.name}: {e}")
+            return False
 
 
