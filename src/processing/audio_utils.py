@@ -84,6 +84,9 @@ class AudioConverter:
                 src_len = FLAC(source).info.length
             elif source.suffix.lower() == ".mp3":
                 src_len = MP3(source).info.length
+            elif source.suffix.lower() == ".m4a":
+                from mutagen.mp4 import MP4
+                src_len = MP4(source).info.length
             
             # Get target duration
             tgt_len = 0

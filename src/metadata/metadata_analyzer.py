@@ -44,6 +44,16 @@ class AlbumAnalyzer:
                         genres.append(str(tags.get("TCON", "")))
                     except Exception:
                         pass
+                elif ext == ".m4a":
+                    try:
+                        from mutagen.mp4 import MP4
+                        audio = MP4(f)
+                        albums.append(audio.get("\xa9alb", [""])[0])
+                        artists.append(audio.get("aART", audio.get("\xa9ART", [""]))[0])
+                        years.append(audio.get("\xa9day", [""])[0])
+                        genres.append(audio.get("\xa9gen", [""])[0])
+                    except Exception:
+                        pass
             except Exception:
                 continue
 

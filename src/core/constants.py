@@ -4,7 +4,7 @@ Central repository for constants used across the MusicAutoFormatter project.
 
 # Audio Configuration
 DEFAULT_BITRATE = "320k"
-MUSIC_EXTENSIONS = [".flac", ".wav", ".mp3"]
+MUSIC_EXTENSIONS = [".flac", ".wav", ".mp3", ".m4a"]
 
 # Image Configuration
 DEFAULT_TARGET_IMAGE_SIZE = (800, 800)

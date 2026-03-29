@@ -57,6 +57,15 @@ class MetadataManager:
                     title = str(tags.get("TIT2", ""))
                 except Exception:
                     pass
+            elif ext == ".m4a":
+                try:
+                    from mutagen.mp4 import MP4
+                    audio = MP4(source_path)
+                    trkn = audio.get("trkn", [[0]])[0][0]
+                    track = str(trkn) if trkn > 0 else ""
+                    title = audio.get("\xa9nam", [""])[0]
+                except Exception:
+                    pass
 
             if not track:
                 audio = mutagen.File(source_path)
@@ -93,6 +102,13 @@ class MetadataManager:
                     album = str(tags.get("TALB", ""))
                 except Exception:
                     pass
+            elif ext == ".m4a":
+                try:
+                    from mutagen.mp4 import MP4
+                    audio = MP4(source_path)
+                    album = audio.get("\xa9alb", [""])[0]
+                except Exception:
+                    pass
         except Exception:
             pass
             
@@ -115,6 +131,8 @@ class MetadataManager:
             art_data, mime_type = self._apply_flac_tags(source_path, target_tags, track_padding)
         elif ext in [".wav", ".mp3"]:
             art_data, mime_type = self._apply_id3_tags(source_path, target_tags, track_padding)
+        elif ext == ".m4a":
+            art_data, mime_type = self._apply_m4a_tags(source_path, target_tags, track_padding)
 
         # 2. Cover Art Logic
         if not art_data:
@@ -164,6 +182,43 @@ class MetadataManager:
                     frame.text = [self.padding_manager.apply_padding(raw_val, padding)]
                 target_tags.add(frame)
         except Exception:
+            pass
+        return art_data, mime
+
+    def _apply_m4a_tags(self, path: Path, target_tags: ID3, padding: int) -> (Optional[bytes], str):
+        art_data, mime = None, "image/jpeg"
+        try:
+            from mutagen.mp4 import MP4, MP4Cover
+            from mutagen.id3 import TIT2, TPE1, TPE2, TALB, TYER, TCON, TRCK
+            audio = MP4(path)
+            
+            mp4_to_id3 = {
+                "\xa9nam": TIT2,
+                "\xa9ART": TPE1,
+                "aART": TPE2,
+                "\xa9alb": TALB,
+                "\xa9day": TYER,
+                "\xa9gen": TCON
+            }
+            
+            for mp4_key, id3_frame in mp4_to_id3.items():
+                if mp4_key in audio:
+                    val = str(audio[mp4_key][0])
+                    target_tags.add(id3_frame(encoding=3, text=[val]))
+                    
+            if "trkn" in audio:
+                trkn = audio["trkn"][0][0]
+                if trkn > 0:
+                    track_str = str(trkn)
+                    if padding > 0:
+                        track_str = self.padding_manager.apply_padding(track_str, padding)
+                    target_tags.add(TRCK(encoding=3, text=[track_str]))
+                    
+            if "covr" in audio and audio["covr"]:
+                cover = audio["covr"][0]
+                art_data = bytes(cover)
+                mime = "image/png" if getattr(cover, "imageformat", None) == MP4Cover.FORMAT_PNG else "image/jpeg"
+        except Exception as e:
             pass
         return art_data, mime
 
