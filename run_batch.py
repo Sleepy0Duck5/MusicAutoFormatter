@@ -74,24 +74,13 @@ def main():
                 logger.warning(f"Output folder '{album_output.name}' already exists. Skipping.")
                 continue
 
-            # 4. Analyze and process
-            formatter.prepare_album(files_to_process)
+            # 4. Orchestrate Processing
+            success = formatter.process_album(files_to_process, album_dir)
             
-            all_success = True
-            for f in files_to_process:
-                padding = formatter.padding_manager.get_padding_for_dir(f.parent)
-                if not formatter.process_file(f, base_path=album_dir, track_padding=padding):
-                    all_success = False
-
-            # 5. Atomic Cleanup: Only delete source files if the entire entry was successful
-            if all_success and args.delete_source:
-                formatter.delete_source_files(files_to_process)
-            elif not all_success and args.delete_source:
-                logger.warning(f"Partial failure in '{album_dir.name}'. Source will NOT be deleted.")
-
-            # 6. Finalize Structure
-            formatter.finalize_library(album_dir)
-            logger.success(f"Processed album: {album_dir.name}")
+            if success:
+                logger.success(f"Successfully processed: {album_dir.name}")
+            else:
+                logger.warning(f"Completed with errors: {album_dir.name}")
 
         except Exception as e:
             if logger_setup:

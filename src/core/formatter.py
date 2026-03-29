@@ -95,7 +95,42 @@ class MusicFormatter:
         except Exception as e:
             logger.debug(f"Could not remove directory {directory}: {e}")
 
-    def process_file(self, file_path: Path, base_path: Optional[Path] = None, track_padding: int = 0):
+    def process_album(self, files: list[Path], input_path: Path) -> bool:
+        """
+        Orchestrates the entire processing flow for an album folder.
+        Handles analysis, per-file processing, atomic deletion, and library finalization.
+        """
+        if not files:
+            logger.warning(f"No files to process for album: {input_path.name}")
+            return True
+
+        # 1. Analyze entire album metadata first
+        self.prepare_album(files)
+        
+        # 2. Process all files and track overall success
+        all_success = True
+        logger.info(f"Processing album: {input_path.name} ({len(files)} items)")
+        
+        for f in files:
+            padding = self.padding_manager.get_padding_for_dir(f.parent)
+            # Use original input_path as base for hierarchy calculation
+            base_dir = input_path if input_path.is_dir() else None
+            
+            if not self.process_file(f, base_path=base_dir, track_padding=padding):
+                all_success = False
+
+        # 3. Atomic Cleanup: Only delete source files if EVERYTHING succeeded
+        if all_success and self.delete_source:
+            self.delete_source_files(files)
+        elif not all_success and self.delete_source:
+             logger.warning(f"Partial failure detected in '{input_path.name}'. Source files preserved for safety.")
+
+        # 4. Finalize output structure (rename to album titles, etc.)
+        self.finalize_library(input_path)
+        
+        return all_success
+
+    def process_file(self, file_path: Path, base_path: Optional[Path] = None, track_padding: int = 0) -> bool:
         ext = file_path.suffix.lower()
         
         target_dir = self.output_dir

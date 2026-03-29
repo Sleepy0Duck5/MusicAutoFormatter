@@ -56,28 +56,13 @@ def main():
     setup_logger(output_base)
     logger.info(f"Found {len(files_to_process)} entries. Starting process...")
     
-    # 5. Analyze and Process
-    formatter.prepare_album(files_to_process)
-    all_success = True
-    for f in files_to_process:
-        base_dir = input_path if input_path.is_dir() else None
-        
-        # Calculate padding using the padding manager within the orchestrator
-        padding = formatter.padding_manager.get_padding_for_dir(f.parent)
-        
-        # Process the entry
-        if not formatter.process_file(f, base_path=base_dir, track_padding=padding):
-            all_success = False
-
-    # 4. Atomic Cleanup: Only delete source files if EVERYTHING was successful
-    if all_success and args.delete_source:
-        formatter.delete_source_files(files_to_process)
-    elif not all_success and args.delete_source:
-        logger.warning("Partial failure detected. Source files will NOT be deleted for safety.")
-
-    # 5. Finalize Structure
-    formatter.finalize_library(input_path)
-    logger.success("Formatting completed.")
+    # 5. Orchestrate Processing
+    success = formatter.process_album(files_to_process, input_path)
+    
+    if success:
+        logger.success("Formatting completed successfully.")
+    else:
+        logger.warning("Formatting finished with some errors. Please check the logs.")
 
 if __name__ == "__main__":
     main()
