@@ -1,6 +1,7 @@
 import httpx
 from loguru import logger
 from typing import Optional
+import re
 from src.core.constants import LASTFM_API_ENDPOINT
 
 class LastFmClient:
@@ -24,6 +25,43 @@ class LastFmClient:
             logger.debug(f"Missing artist ({artist}) or album ({album}) for Last.fm lookup.")
             return None, "image/jpeg"
 
+        # Search Strategy: Try multiple variations to increase match rate
+        # 1. Original: "Warhammer 40,000_ Darktide"
+        # 2. Underscore to Colon: "Warhammer 40,000: Darktide"
+        # 3. Underscore to Space: "Warhammer 40,000  Darktide"
+        # 4. Strip extra info after parenthesis/bracket: "(Original Soundtrack)" -> ""
+        
+        search_names = [album]
+        
+        if "_" in album:
+            search_names.append(album.replace("_", ":"))
+            search_names.append(album.replace("_", " "))
+        
+        # Add a version with everything in parentheses removed (e.g., "(Original Soundtrack)")
+        # This often matches better on Last.fm for OST releases.
+        stripped_album = re.sub(r'\s*\(.*?\)\s*', '', album).strip()
+        if stripped_album != album:
+            search_names.append(stripped_album)
+            # Try stripped with colon replacement too
+            if "_" in stripped_album:
+                search_names.append(stripped_album.replace("_", ":"))
+
+        # Deduplicate while preserving order
+        unique_names = []
+        for name in search_names:
+            if name not in unique_names:
+                unique_names.append(name)
+
+        for attempt, current_album in enumerate(unique_names):
+            logger.debug(f"Searching Last.fm (Attempt {attempt+1}): {artist} - {current_album}")
+            data, mime = self._fetch_album_info(artist, current_album)
+            if data:
+                return data, mime
+        
+        logger.debug(f"All online search attempts failed for '{artist} - {album}'")
+        return None, "image/jpeg"
+
+    def _fetch_album_info(self, artist: str, album: str) -> (Optional[bytes], str):
         params = {
             "method": "album.getInfo",
             "api_key": self.api_key,
@@ -39,13 +77,11 @@ class LastFmClient:
                 data = response.json()
 
                 if "album" not in data or "image" not in data["album"]:
-                    logger.debug(f"No artwork found on Last.fm for '{artist} - {album}'")
                     return None, "image/jpeg"
 
                 images = data["album"]["image"]
-                # Preference: mega > extralarge > large
-                # Sizes are typically [small, medium, large, extralarge, mega]
                 image_url = None
+                # Preference: mega > extralarge > large
                 for size in ["mega", "extralarge", "large"]:
                     for img in images:
                         if img.get("size") == size and img.get("#text"):
@@ -54,24 +90,34 @@ class LastFmClient:
                     if image_url:
                         break
 
-                if not image_url:
-                    logger.debug(f"Found album on Last.fm but no high-quality image URL for '{artist} - {album}'")
+                if not image_url or "default_album_medium.png" in image_url:
                     return None, "image/jpeg"
 
+                # Attempt to get original resolution using Last.fm URL "trick"
+                # Pattern: /i/u/{size}/ -> /i/u/_/
+                # e.g., /i/u/300x300/abc.png -> /i/u/_/abc.png
+                hi_res_url = re.sub(r'/i/u/[^/]+/', '/i/u/_/', image_url)
+                download_url = image_url
+                
+                if hi_res_url != image_url:
+                    try:
+                        # Quickly check if hi-res version exists (200 OK)
+                        logger.debug(f"Attempting high-resolution upgrade: {hi_res_url}")
+                        head_response = client.head(hi_res_url, follow_redirects=True)
+                        if head_response.status_code == 200:
+                            download_url = hi_res_url
+                    except Exception:
+                        pass
+
                 # Download the image
-                logger.info(f"Downloading album art from Last.fm: {image_url}")
-                img_response = client.get(image_url)
+                logger.debug(f"Found match! Downloading: {download_url}")
+                img_response = client.get(download_url)
                 img_response.raise_for_status()
                 
                 content_type = img_response.headers.get("Content-Type", "image/jpeg")
                 return img_response.content, content_type
 
-        except httpx.HTTPStatusError as e:
-            if e.response.status_code == 404:
-                logger.debug(f"Album '{artist} - {album}' not found on Last.fm")
-            else:
-                logger.error(f"Last.fm API error: {e}")
-        except Exception as e:
-            logger.error(f"Error fetching album art from Last.fm: {e}")
+        except Exception:
+            pass
 
         return None, "image/jpeg"
