@@ -11,6 +11,7 @@ class LastFmClient:
     def __init__(self, api_key: Optional[str] = None):
         self.api_key = api_key
         self.base_url = LASTFM_API_ENDPOINT
+        self.cache = {} # Cache for (artist, album) -> (image_data, mime_type)
 
     def get_album_art(self, artist: str, album: str) -> (Optional[bytes], str):
         """
@@ -24,6 +25,12 @@ class LastFmClient:
         if not artist or not album:
             logger.debug(f"Missing artist ({artist}) or album ({album}) for Last.fm lookup.")
             return None, "image/jpeg"
+
+        # 1. Check Cache
+        cache_key = (artist.lower().strip(), album.lower().strip())
+        if cache_key in self.cache:
+            logger.debug(f"Using cached Last.fm result for '{artist} - {album}'")
+            return self.cache[cache_key]
 
         # Search Strategy: Try multiple variations to increase match rate
         # 1. Original: "My Album_ Title"
@@ -56,8 +63,11 @@ class LastFmClient:
             logger.debug(f"Searching Last.fm (Attempt {attempt+1}): {artist} - {current_album}")
             data, mime = self._fetch_album_info(artist, current_album)
             if data:
+                self.cache[cache_key] = (data, mime)
                 return data, mime
         
+        # Cache failure to prevent redundant calls
+        self.cache[cache_key] = (None, "image/jpeg")
         logger.debug(f"All online search attempts failed for '{artist} - {album}'")
         return None, "image/jpeg"
 
