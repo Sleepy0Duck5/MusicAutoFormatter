@@ -24,6 +24,9 @@ LOG_FILENAME_PREFIX = "music_auto_formatter"
 LOG_FORMAT_CONSOLE = "<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level: <8}</level> | <cyan>{message}</cyan>"
 LOG_FORMAT_FILE = "{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {message}"
 
+# Last.fm API Configuration
+LASTFM_API_ENDPOINT = "https://ws.audioscrobbler.com/2.0/"
+
 # Library Management
 # Folders matching this pattern will be handled specially (e.g., skip rename of the folder itself, rename parent instead)
 GENERIC_FOLDER_REGEX = r"^(disc|cd|vol|track|volume|part|d|side)\s?(\d+|[a-z])$"

@@ -1,4 +1,6 @@
+import os
 from pathlib import Path
+from dotenv import load_dotenv
 from typing import Optional
 from loguru import logger
 from src.metadata.metadata_utils import TrackPaddingManager
@@ -6,6 +8,7 @@ from src.processing.audio_utils import AudioConverter
 from src.processing.image_utils import ImageProcessor
 from src.processing.file_utils import FileMirror
 from src.metadata.metadata_processor import MetadataManager
+from src.metadata.lastfm_client import LastFmClient
 from src.library.scanner_utils import LibraryScanner
 from src.library.library_manager import LibraryManager
 from src.core.constants import (
@@ -17,7 +20,7 @@ from src.core.constants import (
 )
 
 class MusicFormatter:
-    def __init__(self, output_dir: str = "output", bitrate: str = DEFAULT_BITRATE, max_art_size: int = DEFAULT_MAX_ART_SIZE, delete_source: bool = True, backup_m3u: bool = False, create_dir: bool = True, use_folder_as_album: bool = False):
+    def __init__(self, output_dir: str = "output", bitrate: str = DEFAULT_BITRATE, max_art_size: int = DEFAULT_MAX_ART_SIZE, delete_source: bool = True, backup_m3u: bool = False, create_dir: bool = True, use_folder_as_album: bool = False, lastfm_api_key: Optional[str] = None):
         self.output_dir = Path(output_dir)
         self.use_folder_as_album = use_folder_as_album
         if create_dir:
@@ -28,8 +31,15 @@ class MusicFormatter:
         self.padding_manager = TrackPaddingManager(min_padding=DEFAULT_TRACK_PADDING)
         self.converter = AudioConverter(bitrate=bitrate)
         self.image_processor = ImageProcessor(target_size=DEFAULT_TARGET_IMAGE_SIZE, max_filesize=max_art_size)
+        
+        # Load Last.fm API key from .env if not explicitly passed
+        if lastfm_api_key is None:
+            load_dotenv()
+            lastfm_api_key = os.getenv("LASTFM_API_KEY")
+            
+        self.lastfm_client = LastFmClient(api_key=lastfm_api_key)
         self.mirror = FileMirror(output_base=self.output_dir, backup_m3u=backup_m3u)
-        self.metadata_manager = MetadataManager(self.padding_manager, self.image_processor)
+        self.metadata_manager = MetadataManager(self.padding_manager, self.image_processor, self.lastfm_client)
         self.scanner = LibraryScanner(exclude_dirs=[str(self.output_dir.resolve())])
         self.library_manager = LibraryManager(self.output_dir, self.metadata_manager)
 

@@ -7,6 +7,7 @@ from mutagen.flac import FLAC
 from src.core.constants import UNKNOWN_ALBUM
 from src.metadata.metadata_analyzer import AlbumAnalyzer
 from src.metadata.cover_finder import CoverArtFinder
+from src.metadata.lastfm_client import LastFmClient
 
 class MetadataManager:
     """
@@ -29,9 +30,10 @@ class MetadataManager:
         "comment": lambda text: mutagen.id3.COMM(encoding=3, lang="eng", desc="", text=text),
     }
 
-    def __init__(self, padding_manager, image_processor):
+    def __init__(self, padding_manager, image_processor, lastfm_client: Optional[LastFmClient] = None):
         self.padding_manager = padding_manager
         self.image_processor = image_processor
+        self.lastfm_client = lastfm_client or LastFmClient()
         self.analyzer = AlbumAnalyzer()
         self.cover_finder = CoverArtFinder()
 
@@ -137,6 +139,13 @@ class MetadataManager:
         # 2. Cover Art Logic
         if not art_data:
             art_data, mime_type = self.cover_finder.find(source_path)
+
+        # 2.1 Online Fallback (Last.fm)
+        if not art_data and self.lastfm_client:
+            artist = self.analyzer.get_value("TPE2")
+            album = self.analyzer.get_value("TALB")
+            if artist and album:
+                art_data, mime_type = self.lastfm_client.get_album_art(artist, album)
 
         if art_data:
             art_data, mime_type = self.image_processor.process_cover(art_data)
