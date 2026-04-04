@@ -65,11 +65,53 @@ class LastFmClient:
             if data:
                 self.cache[cache_key] = (data, mime)
                 return data, mime
+
+        # 3. Global Search Fallback
+        # If direct lookups failed, try searching for the album to find the official name/artist
+        logger.debug(f"Direct lookups failed. Attempting global search for '{artist} - {album}'")
+        official_artist, official_album = self._search_album(artist, album)
+        if official_artist and official_album:
+            # Avoid infinite loop if search returned the exact same thing we already tried
+            if (official_artist.lower() != artist.lower() or official_album.lower() != album.strip().lower()):
+                logger.debug(f"Found candidate match via search: {official_artist} - {official_album}")
+                data, mime = self._fetch_album_info(official_artist, official_album)
+                if data:
+                    self.cache[cache_key] = (data, mime)
+                    return data, mime
         
         # Cache failure to prevent redundant calls
         self.cache[cache_key] = (None, "image/jpeg")
         logger.debug(f"All online search attempts failed for '{artist} - {album}'")
         return None, "image/jpeg"
+
+    def _search_album(self, artist: str, album: str) -> (Optional[str], Optional[str]):
+        """
+        Performs a global search for the album to find the official artist and album name.
+        """
+        params = {
+            "method": "album.search",
+            "api_key": self.api_key,
+            "album": f"{artist} {album}",
+            "limit": 5,
+            "format": "json"
+        }
+        
+        try:
+            with httpx.Client(timeout=10.0) as client:
+                response = client.get(self.base_url, params=params)
+                response.raise_for_status()
+                data = response.json()
+                
+                results = data.get("results", {}).get("albummatches", {}).get("album", [])
+                if not results:
+                    return None, None
+                
+                # Take the first result as the best match
+                match = results[0]
+                return match.get("artist"), match.get("name")
+        except Exception as e:
+            logger.debug(f"Last.fm search failed: {e}")
+            return None, None
 
     def _fetch_album_info(self, artist: str, album: str) -> (Optional[bytes], str):
         params = {
