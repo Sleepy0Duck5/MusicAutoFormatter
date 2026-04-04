@@ -13,18 +13,18 @@ class LastFmClient:
         self.base_url = LASTFM_API_ENDPOINT
         self.cache = {} # Cache for (artist, album) -> (image_data, mime_type)
 
-    def get_album_art(self, artist: str, album: str) -> (Optional[bytes], str):
+    def get_album_art(self, artist: str, album: str) -> (Optional[bytes], str, Optional[str], Optional[str]):
         """
         Fetches album art for the given artist and album.
-        Returns a tuple of (image_data, mime_type).
+        Returns a tuple of (image_data, mime_type, official_artist, official_album).
         """
         if not self.api_key:
             logger.warning("Last.fm API Key is not set. Skipping online art search.")
-            return None, "image/jpeg"
+            return None, "image/jpeg", None, None
 
         if not artist or not album:
             logger.debug(f"Missing artist ({artist}) or album ({album}) for Last.fm lookup.")
-            return None, "image/jpeg"
+            return None, "image/jpeg", None, None
 
         # 1. Check Cache
         cache_key = (artist.lower().strip(), album.lower().strip())
@@ -59,12 +59,16 @@ class LastFmClient:
             if name not in unique_names:
                 unique_names.append(name)
 
+        # Result storage: (art_data, mime, official_artist, official_album)
+        final_result = (None, "image/jpeg", None, None)
+
         for attempt, current_album in enumerate(unique_names):
             logger.debug(f"Searching Last.fm (Attempt {attempt+1}): {artist} - {current_album}")
-            data, mime = self._fetch_album_info(artist, current_album)
+            data, mime, off_art, off_alb = self._fetch_album_info(artist, current_album)
             if data:
-                self.cache[cache_key] = (data, mime)
-                return data, mime
+                final_result = (data, mime, off_art, off_alb)
+                self.cache[cache_key] = final_result
+                return final_result
 
         # 3. Global Search Fallback
         # If direct lookups failed, try searching for the album to find the official name/artist
@@ -74,15 +78,16 @@ class LastFmClient:
             # Avoid infinite loop if search returned the exact same thing we already tried
             if (official_artist.lower() != artist.lower() or official_album.lower() != album.strip().lower()):
                 logger.debug(f"Found candidate match via search: {official_artist} - {official_album}")
-                data, mime = self._fetch_album_info(official_artist, official_album)
+                data, mime, off_art, off_alb = self._fetch_album_info(official_artist, official_album)
                 if data:
-                    self.cache[cache_key] = (data, mime)
-                    return data, mime
+                    final_result = (data, mime, off_art, off_alb)
+                    self.cache[cache_key] = final_result
+                    return final_result
         
         # Cache failure to prevent redundant calls
-        self.cache[cache_key] = (None, "image/jpeg")
+        self.cache[cache_key] = final_result
         logger.debug(f"All online search attempts failed for '{artist} - {album}'")
-        return None, "image/jpeg"
+        return final_result
 
     def _search_album(self, artist: str, album: str) -> (Optional[str], Optional[str]):
         """
@@ -113,7 +118,7 @@ class LastFmClient:
             logger.debug(f"Last.fm search failed: {e}")
             return None, None
 
-    def _fetch_album_info(self, artist: str, album: str) -> (Optional[bytes], str):
+    def _fetch_album_info(self, artist: str, album: str) -> (Optional[bytes], str, Optional[str], Optional[str]):
         params = {
             "method": "album.getInfo",
             "api_key": self.api_key,
@@ -128,8 +133,14 @@ class LastFmClient:
                 response.raise_for_status()
                 data = response.json()
 
-                if "album" not in data or "image" not in data["album"]:
-                    return None, "image/jpeg"
+                if "album" not in data:
+                    return None, "image/jpeg", None, None
+                
+                off_art = data["album"].get("artist")
+                off_alb = data["album"].get("name")
+
+                if "image" not in data["album"]:
+                    return None, "image/jpeg", off_art, off_alb
 
                 images = data["album"]["image"]
                 image_url = None
@@ -143,7 +154,7 @@ class LastFmClient:
                         break
 
                 if not image_url or "default_album_medium.png" in image_url:
-                    return None, "image/jpeg"
+                    return None, "image/jpeg", off_art, off_alb
 
                 # Attempt to get original resolution using Last.fm URL "trick"
                 # Pattern: /i/u/{size}/ -> /i/u/_/
@@ -167,9 +178,9 @@ class LastFmClient:
                 img_response.raise_for_status()
                 
                 content_type = img_response.headers.get("Content-Type", "image/jpeg")
-                return img_response.content, content_type
+                return img_response.content, content_type, off_art, off_alb
 
         except Exception:
             pass
 
-        return None, "image/jpeg"
+        return None, "image/jpeg", None, None

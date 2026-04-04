@@ -140,12 +140,30 @@ class MetadataManager:
         if not art_data:
             art_data, mime_type = self.cover_finder.find(source_path)
 
-        # 2.1 Online Fallback (Last.fm)
-        if not art_data and self.lastfm_client:
+        # 2.1 Online Lookup (Metadata Enrichment & Art Fallback)
+        if self.lastfm_client:
             artist = self.analyzer.get_value("TPE2")
             album = self.analyzer.get_value("TALB")
+            
             if artist and album:
-                art_data, mime_type = self.lastfm_client.get_album_art(artist, album)
+                # We check Last.fm if:
+                # 1. We don't have album art yet (Fallback)
+                # 2. OR the album name looks like it needs normalization (e.g., contains '_')
+                needs_art = not art_data
+                needs_normalization = "_" in album or self.analyzer.get_value("TALB_ORIGINAL") != album
+                
+                if needs_art or needs_normalization:
+                    l_data, l_mime, off_art, off_alb = self.lastfm_client.get_album_art(artist, album)
+                    
+                    # Store official names to restore special characters in tags
+                    if off_art:
+                        self.analyzer.set_value("TPE2", off_art)
+                    if off_alb:
+                        self.analyzer.set_value("TALB", off_alb)
+                    
+                    # Only use l_data if we don't have art from local source
+                    if needs_art and l_data:
+                        art_data, mime_type = l_data, l_mime
 
         if art_data:
             art_data, mime_type = self.image_processor.process_cover(art_data)

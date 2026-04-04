@@ -75,3 +75,8 @@ class AlbumAnalyzer:
 
     def get_value(self, tag_id: str) -> str:
         return self.consolidated.get(tag_id)
+
+    def set_value(self, tag_id: str, value: str):
+        """Manually updates a consolidated value (e.g., from online search)."""
+        if value:
+            self.consolidated[tag_id] = value
