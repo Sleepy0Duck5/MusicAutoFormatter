@@ -26,9 +26,9 @@ class LastFmClient:
             return None, "image/jpeg"
 
         # Search Strategy: Try multiple variations to increase match rate
-        # 1. Original: "Warhammer 40,000_ Darktide"
-        # 2. Underscore to Colon: "Warhammer 40,000: Darktide"
-        # 3. Underscore to Space: "Warhammer 40,000  Darktide"
+        # 1. Original: "My Album_ Title"
+        # 2. Underscore to Colon: "My Album: Title"
+        # 3. Underscore to Space: "My Album  Title"
         # 4. Strip extra info after parenthesis/bracket: "(Original Soundtrack)" -> ""
         
         search_names = [album]
