@@ -4,7 +4,7 @@ import mutagen
 from mutagen.id3 import ID3, APIC, TIT2, TPE1, TPE2, TALB, TYER, TCON, ID3NoHeaderError
 from mutagen.flac import FLAC
 
-from src.core.constants import UNKNOWN_ALBUM
+from src.core.constants import UNKNOWN_ALBUM, COVER_SEARCH_NAMES, IMAGE_EXTENSIONS
 from src.metadata.metadata_analyzer import AlbumAnalyzer
 from src.metadata.cover_finder import CoverArtFinder
 from src.metadata.lastfm_client import LastFmClient
@@ -150,6 +150,8 @@ class MetadataManager:
         if art_data:
             art_data, mime_type = self.image_processor.process_cover(art_data)
             target_tags.add(APIC(encoding=3, mime=mime_type, type=3, desc='Cover', data=art_data))
+            # Save a local cover file if none exists in the output directory
+            self._save_local_cover(target_path.parent, art_data, mime_type)
         
         # 3. Finalization & Consolidation
         if "TIT2" not in target_tags:
@@ -157,6 +159,28 @@ class MetadataManager:
 
         self._enforce_consolidated_meta(target_tags)
         target_tags.save(target_path, v2_version=3)
+
+    def _save_local_cover(self, directory: Path, data: bytes, mime: str):
+        """
+        Saves the processed album art to the local directory as 'cover.jpg' or 'cover.png'.
+        Only saves if no common cover art file (cover, folder, front) already exists.
+        """
+        try:
+            # Check for existing cover-like files using global constants
+            for f in directory.iterdir():
+                if f.is_file() and f.suffix.lower() in IMAGE_EXTENSIONS:
+                    if any(kw in f.stem.lower() for kw in COVER_SEARCH_NAMES):
+                        return # Already exists, skipping
+
+            # Determine extension
+            ext = ".png" if mime == "image/png" else ".jpg"
+            target_file = directory / f"cover{ext}"
+            
+            from loguru import logger
+            logger.info(f"Saving found album art as local asset: {target_file.name}")
+            target_file.write_bytes(data)
+        except Exception:
+            pass
 
     def _apply_flac_tags(self, path: Path, target_tags: ID3, padding: int) -> (Optional[bytes], str):
         audio = FLAC(path)
