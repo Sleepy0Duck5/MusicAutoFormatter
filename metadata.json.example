@@ -1,0 +1,8 @@
+{
+    "input": {
+        "file_name": "Prefix %track%%sep-optional%%title-optional%"
+    },
+    "output": {
+        "fallback_title": "Track %track%"
+    }
+}
