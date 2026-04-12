@@ -9,6 +9,7 @@ from src.metadata.metadata_analyzer import AlbumAnalyzer
 from src.metadata.cover_finder import CoverArtFinder
 from src.metadata.lastfm_client import LastFmClient
 from src.metadata.art_extractor import EmbeddedArtExtractor
+from src.metadata.sync_config import SyncConfig
 from src.utils.filename_parser import FilenameParser
 
 class MetadataManager:
@@ -59,12 +60,21 @@ class MetadataManager:
         # 2. Extract base album art
         self.base_art_data, self.base_art_mime = EmbeddedArtExtractor.extract(base_file)
             
-        # 3. Parse target files for track/title
-        filenames = [f.name for f in target_files]
-        parsed_results = FilenameParser.process_filenames(filenames)
-        
-        for file_path, (track, title) in zip(target_files, parsed_results):
-            self.file_to_metadata[file_path] = {"track": track, "title": title}
+        # 3. Custom Logic: metadata.json
+        config = SyncConfig.load(base_file.parent)
+
+        # 4. Parse target files
+        if config.template:
+            for f in target_files:
+                track, title = FilenameParser.parse_with_template(f.name, config.template)
+                title = config.apply_fallback(track, title)
+                self.file_to_metadata[f] = {"track": track, "title": title}
+        else:
+            # Fallback to default automated prefix detection
+            filenames = [f.name for f in target_files]
+            parsed_results = FilenameParser.process_filenames(filenames)
+            for file_path, (track, title) in zip(target_files, parsed_results):
+                self.file_to_metadata[file_path] = {"track": track, "title": title}
 
 
     def analyze_album(self, files: list[Path]):

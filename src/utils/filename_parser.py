@@ -90,3 +90,43 @@ class FilenameParser:
             results.append((track, title))
             
         return results
+
+    @staticmethod
+    def _template_to_regex(template: str) -> str:
+        """Converts a template string like '%track% %title%' into a regex pattern."""
+        mapping = {
+            "%track%": r"(?P<track>\d+)",
+            "%track-optional%": r"(?P<track>\d*)",
+            "%title%": r"(?P<title>.+)",
+            "%title-optional%": r"(?P<title>.*)",
+            "%sep%": r"[_\.\s-]+",
+            "%sep-optional%": r"[_\.\s-]*",
+        }
+        
+        parts = re.split(r"(%.*?%)", template)
+        re_parts = []
+        for part in parts:
+            if part in mapping:
+                re_parts.append(mapping[part])
+            else:
+                re_parts.append(re.escape(part))
+        
+        return "^" + "".join(re_parts) + "$"
+
+    @classmethod
+    def parse_with_template(cls, filename: str, template: str) -> Tuple[Optional[str], Optional[str]]:
+        """Parses a filename using a custom template string."""
+        stem = os.path.splitext(filename)[0]
+        pattern = cls._template_to_regex(template)
+        
+        try:
+            match = re.match(pattern, stem)
+            if match:
+                groups = match.groupdict()
+                track = groups.get("track")
+                title = groups.get("title")
+                return track if track else None, title if title else None
+        except Exception:
+            pass
+            
+        return None, None
