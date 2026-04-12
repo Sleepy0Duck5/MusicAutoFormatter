@@ -8,6 +8,7 @@ from src.core.constants import UNKNOWN_ALBUM, COVER_SEARCH_NAMES, IMAGE_EXTENSIO
 from src.metadata.metadata_analyzer import AlbumAnalyzer
 from src.metadata.cover_finder import CoverArtFinder
 from src.metadata.lastfm_client import LastFmClient
+from src.metadata.art_extractor import EmbeddedArtExtractor
 from src.utils.filename_parser import FilenameParser
 
 class MetadataManager:
@@ -56,13 +57,7 @@ class MetadataManager:
         self.analyzer.analyze([base_file])
         
         # 2. Extract base album art
-        ext = base_file.suffix.lower()
-        if ext == ".flac":
-            self.base_art_data, self.base_art_mime = self._get_flac_art(base_file)
-        elif ext in [".mp3", ".wav"]:
-            self.base_art_data, self.base_art_mime = self._get_id3_art(base_file)
-        elif ext == ".m4a":
-            self.base_art_data, self.base_art_mime = self._get_m4a_art(base_file)
+        self.base_art_data, self.base_art_mime = EmbeddedArtExtractor.extract(base_file)
             
         # 3. Parse target files for track/title
         filenames = [f.name for f in target_files]
@@ -71,34 +66,6 @@ class MetadataManager:
         for file_path, (track, title) in zip(target_files, parsed_results):
             self.file_to_metadata[file_path] = {"track": track, "title": title}
 
-    def _get_flac_art(self, path: Path) -> (Optional[bytes], str):
-        from mutagen.flac import FLAC
-        audio = FLAC(path)
-        if audio.pictures:
-            return audio.pictures[0].data, audio.pictures[0].mime
-        return None, "image/jpeg"
-
-    def _get_id3_art(self, path: Path) -> (Optional[bytes], str):
-        try:
-            tags = ID3(path)
-            for frame_id in tags:
-                if frame_id.startswith("APIC"):
-                    return tags[frame_id].data, tags[frame_id].mime
-        except Exception:
-            pass
-        return None, "image/jpeg"
-
-    def _get_m4a_art(self, path: Path) -> (Optional[bytes], str):
-        try:
-            from mutagen.mp4 import MP4, MP4Cover
-            audio = MP4(path)
-            if "covr" in audio and audio["covr"]:
-                cover = audio["covr"][0]
-                mime = "image/png" if getattr(cover, "imageformat", None) == MP4Cover.FORMAT_PNG else "image/jpeg"
-                return bytes(cover), mime
-        except Exception:
-            pass
-        return None, "image/jpeg"
 
     def analyze_album(self, files: list[Path]):
         """Delegates album-wide analysis to the specialized analyzer."""
@@ -200,13 +167,16 @@ class MetadataManager:
         art_data, mime_type = None, "image/jpeg"
 
         # 1. Extract from Source
+        art_data, mime_type = EmbeddedArtExtractor.extract(source_path)
+        
+        # Apply metadata based on format
         ext = source_path.suffix.lower()
         if ext == ".flac":
-            art_data, mime_type = self._apply_flac_tags(source_path, target_tags, track_padding)
+            self._apply_flac_tags(source_path, target_tags, track_padding)
         elif ext in [".wav", ".mp3"]:
-            art_data, mime_type = self._apply_id3_tags(source_path, target_tags, track_padding)
+            self._apply_id3_tags(source_path, target_tags, track_padding)
         elif ext == ".m4a":
-            art_data, mime_type = self._apply_m4a_tags(source_path, target_tags, track_padding)
+            self._apply_m4a_tags(source_path, target_tags, track_padding)
 
         # 1.1 Override for Base Sync Mode: Inject parsed Track and Title
         if self.is_base_sync_mode and source_path in self.file_to_metadata:
@@ -286,7 +256,7 @@ class MetadataManager:
         except Exception:
             pass
 
-    def _apply_flac_tags(self, path: Path, target_tags: ID3, padding: int) -> (Optional[bytes], str):
+    def _apply_flac_tags(self, path: Path, target_tags: ID3, padding: int):
         audio = FLAC(path)
         for key, values in audio.items():
             key_lower = key.lower()
@@ -300,18 +270,12 @@ class MetadataManager:
                         target_tags.add(handler(val))
                     else:
                         target_tags.add(handler(encoding=3, text=[val]))
-        
-        if audio.pictures:
-            return audio.pictures[0].data, audio.pictures[0].mime
-        return None, "image/jpeg"
 
-    def _apply_id3_tags(self, path: Path, target_tags: ID3, padding: int) -> (Optional[bytes], str):
-        art_data, mime = None, "image/jpeg"
+    def _apply_id3_tags(self, path: Path, target_tags: ID3, padding: int):
         try:
             source_tags = ID3(path)
             for frame_id, frame in source_tags.items():
                 if frame_id.startswith("APIC"):
-                    art_data, mime = frame.data, frame.mime
                     continue
                 
                 if frame_id == "TRCK" and padding > 0:
@@ -320,12 +284,10 @@ class MetadataManager:
                 target_tags.add(frame)
         except Exception:
             pass
-        return art_data, mime
 
-    def _apply_m4a_tags(self, path: Path, target_tags: ID3, padding: int) -> (Optional[bytes], str):
-        art_data, mime = None, "image/jpeg"
+    def _apply_m4a_tags(self, path: Path, target_tags: ID3, padding: int):
         try:
-            from mutagen.mp4 import MP4, MP4Cover
+            from mutagen.mp4 import MP4
             from mutagen.id3 import TIT2, TPE1, TPE2, TALB, TYER, TCON, TRCK
             audio = MP4(path)
             
@@ -350,14 +312,8 @@ class MetadataManager:
                     if padding > 0:
                         track_str = self.padding_manager.apply_padding(track_str, padding)
                     target_tags.add(TRCK(encoding=3, text=[track_str]))
-                    
-            if "covr" in audio and audio["covr"]:
-                cover = audio["covr"][0]
-                art_data = bytes(cover)
-                mime = "image/png" if getattr(cover, "imageformat", None) == MP4Cover.FORMAT_PNG else "image/jpeg"
         except Exception as e:
             pass
-        return art_data, mime
 
     def _enforce_consolidated_meta(self, target_tags: ID3):
         """Standardizes Album, Artist, Album Artist, Year, Genre, Composer, Comment based on analysis."""
