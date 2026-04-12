@@ -1,13 +1,14 @@
 from pathlib import Path
-from typing import Optional
+from typing import Optional, List
 import mutagen
-from mutagen.id3 import ID3, APIC, TIT2, TPE1, TPE2, TALB, TYER, TCON, ID3NoHeaderError
+from mutagen.id3 import ID3, APIC, TIT2, TPE1, TPE2, TALB, TYER, TCON, TCOM, TRCK, COMM, TPOS, ID3NoHeaderError
 from mutagen.flac import FLAC
 
-from src.core.constants import UNKNOWN_ALBUM, COVER_SEARCH_NAMES, IMAGE_EXTENSIONS
+from src.core.constants import UNKNOWN_ALBUM, COVER_SEARCH_NAMES, IMAGE_EXTENSIONS, BASE_MUSIC_DIR_NAME, MUSIC_EXTENSIONS
 from src.metadata.metadata_analyzer import AlbumAnalyzer
 from src.metadata.cover_finder import CoverArtFinder
 from src.metadata.lastfm_client import LastFmClient
+from src.utils.filename_parser import FilenameParser
 
 class MetadataManager:
     """
@@ -36,6 +37,68 @@ class MetadataManager:
         self.lastfm_client = lastfm_client or LastFmClient()
         self.analyzer = AlbumAnalyzer()
         self.cover_finder = CoverArtFinder()
+        
+        # Base Sync Mode State
+        self.is_base_sync_mode = False
+        self.base_art_data: Optional[bytes] = None
+        self.base_art_mime: str = "image/jpeg"
+        self.file_to_metadata: dict[Path, dict] = {} # Maps target Path to {track, title}
+
+    def set_base_sync_mode(self, base_file: Path, target_files: List[Path]):
+        """
+        Activates Base Sync mode. Extracts common metadata from base_file 
+        and parses track/title from target_files.
+        """
+        self.is_base_sync_mode = True
+        self.file_to_metadata = {}
+        
+        # 1. Analyze base file for common metadata (Album, Artist, etc.)
+        self.analyzer.analyze([base_file])
+        
+        # 2. Extract base album art
+        ext = base_file.suffix.lower()
+        if ext == ".flac":
+            self.base_art_data, self.base_art_mime = self._get_flac_art(base_file)
+        elif ext in [".mp3", ".wav"]:
+            self.base_art_data, self.base_art_mime = self._get_id3_art(base_file)
+        elif ext == ".m4a":
+            self.base_art_data, self.base_art_mime = self._get_m4a_art(base_file)
+            
+        # 3. Parse target files for track/title
+        filenames = [f.name for f in target_files]
+        parsed_results = FilenameParser.process_filenames(filenames)
+        
+        for file_path, (track, title) in zip(target_files, parsed_results):
+            self.file_to_metadata[file_path] = {"track": track, "title": title}
+
+    def _get_flac_art(self, path: Path) -> (Optional[bytes], str):
+        from mutagen.flac import FLAC
+        audio = FLAC(path)
+        if audio.pictures:
+            return audio.pictures[0].data, audio.pictures[0].mime
+        return None, "image/jpeg"
+
+    def _get_id3_art(self, path: Path) -> (Optional[bytes], str):
+        try:
+            tags = ID3(path)
+            for frame_id in tags:
+                if frame_id.startswith("APIC"):
+                    return tags[frame_id].data, tags[frame_id].mime
+        except Exception:
+            pass
+        return None, "image/jpeg"
+
+    def _get_m4a_art(self, path: Path) -> (Optional[bytes], str):
+        try:
+            from mutagen.mp4 import MP4, MP4Cover
+            audio = MP4(path)
+            if "covr" in audio and audio["covr"]:
+                cover = audio["covr"][0]
+                mime = "image/png" if getattr(cover, "imageformat", None) == MP4Cover.FORMAT_PNG else "image/jpeg"
+                return bytes(cover), mime
+        except Exception:
+            pass
+        return None, "image/jpeg"
 
     def analyze_album(self, files: list[Path]):
         """Delegates album-wide analysis to the specialized analyzer."""
@@ -48,37 +111,46 @@ class MetadataManager:
         ext = source_path.suffix.lower()
 
         try:
-            if ext == ".flac":
-                audio = FLAC(source_path)
-                track = audio.get("tracknumber", [""])[0]
-                title = audio.get("title", [""])[0]
-            elif ext in [".mp3", ".wav"]:
-                try:
-                    tags = ID3(source_path)
-                    track = str(tags.get("TRCK", ""))
-                    title = str(tags.get("TIT2", ""))
-                except Exception:
-                    pass
-            elif ext == ".m4a":
-                try:
-                    from mutagen.mp4 import MP4
-                    audio = MP4(source_path)
-                    trkn = audio.get("trkn", [[0]])[0][0]
-                    track = str(trkn) if trkn > 0 else ""
-                    title = audio.get("\xa9nam", [""])[0]
-                except Exception:
-                    pass
+            if self.is_base_sync_mode and source_path in self.file_to_metadata:
+                sync_data = self.file_to_metadata[source_path]
+                track = sync_data.get("track")
+                title = sync_data.get("title")
+            else:
+                if ext == ".flac":
+                    audio = FLAC(source_path)
+                    track = audio.get("tracknumber", [""])[0]
+                    title = audio.get("title", [""])[0]
+                elif ext in [".mp3", ".wav"]:
+                    try:
+                        tags = ID3(source_path)
+                        track = str(tags.get("TRCK", ""))
+                        title = str(tags.get("TIT2", ""))
+                    except Exception:
+                        pass
+                elif ext == ".m4a":
+                    try:
+                        from mutagen.mp4 import MP4
+                        audio = MP4(source_path)
+                        trkn = audio.get("trkn", [[0]])[0][0]
+                        track = str(trkn) if trkn > 0 else ""
+                        title = audio.get("\xa9nam", [""])[0]
+                    except Exception:
+                        pass
 
-            if not track:
-                audio = mutagen.File(source_path)
-                if audio and hasattr(audio, 'tags') and audio.tags:
-                    # Fallback generic metadata extraction if needed
-                    pass
+                if not track:
+                    audio = mutagen.File(source_path)
+                    if audio and hasattr(audio, 'tags') and audio.tags:
+                        # Fallback generic metadata extraction if needed
+                        pass
 
             if track:
                 track = self.padding_manager.apply_padding(track, track_padding)
             
             if not title:
+                if self.is_base_sync_mode:
+                    # In sync mode, if title parsing failed, we only use track if available,
+                    # otherwise we have no choice but to fallback to stem.
+                    return track if track else source_path.stem
                 title = source_path.stem
             
             # Sanitization
@@ -136,12 +208,26 @@ class MetadataManager:
         elif ext == ".m4a":
             art_data, mime_type = self._apply_m4a_tags(source_path, target_tags, track_padding)
 
+        # 1.1 Override for Base Sync Mode: Inject parsed Track and Title
+        if self.is_base_sync_mode and source_path in self.file_to_metadata:
+            sync_data = self.file_to_metadata[source_path]
+            track = sync_data.get("track")
+            title = sync_data.get("title")
+            if track:
+                padded_track = self.padding_manager.apply_padding(track, track_padding)
+                target_tags.add(TRCK(encoding=3, text=[padded_track]))
+            if title:
+                target_tags.add(TIT2(encoding=3, text=[title]))
+
         # 2. Cover Art Logic
+        if self.is_base_sync_mode:
+            art_data, mime_type = self.base_art_data, self.base_art_mime
+        
         if not art_data:
             art_data, mime_type = self.cover_finder.find(source_path)
 
         # 2.1 Online Lookup (Metadata Enrichment & Art Fallback)
-        if self.lastfm_client:
+        if self.lastfm_client and not self.is_base_sync_mode:
             artist = self.analyzer.get_value("TPE2")
             album = self.analyzer.get_value("TALB")
             
@@ -274,9 +360,22 @@ class MetadataManager:
         return art_data, mime
 
     def _enforce_consolidated_meta(self, target_tags: ID3):
-        """Standardizes Album, Artist, Year, Genre based on analysis."""
-        mapping = {"TALB": TALB, "TPE2": TPE2, "TYER": TYER, "TCON": TCON}
+        """Standardizes Album, Artist, Album Artist, Year, Genre, Composer, Comment based on analysis."""
+        mapping = {
+            "TALB": TALB, 
+            "TPE1": TPE1, 
+            "TPE2": TPE2, 
+            "TYER": TYER, 
+            "TCON": TCON, 
+            "TCOM": TCOM,
+            "TPOS": TPOS
+        }
         for frame_id, cls in mapping.items():
             val = self.analyzer.get_value(frame_id)
             if val:
                 target_tags.add(cls(encoding=3, text=val))
+        
+        # Handle Comment separately as it's a COMM frame
+        comment = self.analyzer.get_value("COMM")
+        if comment:
+            target_tags.add(COMM(encoding=3, lang="eng", desc="", text=[comment]))

@@ -208,6 +208,10 @@ __marimo__/
 
 # Test Data
 test_data/
+test_output/
 
 # VSCode
 .vscode/
+
+# example_files
+example_files/

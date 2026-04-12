@@ -17,6 +17,7 @@ from src.core.constants import (
     DEFAULT_TARGET_IMAGE_SIZE,
     DEFAULT_TRACK_PADDING,
     MUSIC_EXTENSIONS,
+    BASE_MUSIC_DIR_NAME,
 )
 
 class MusicFormatter:
@@ -54,8 +55,17 @@ class MusicFormatter:
     def prepare_album(self, files: list[Path]):
         """
         Gathers album-wide metadata and checks for potential output directory collisions.
+        Also detects if the album should be processed in 'Base Sync' mode.
         """
-        self.metadata_manager.analyze_album(files)
+        # 1. Detect Base Sync Mode
+        base_file = self._find_base_file(files)
+        if base_file:
+            logger.info(f"Base Sync Mode detected! Using '{base_file.name}' as reference.")
+            # Filter out the base music folder from processing
+            target_files = [f for f in files if BASE_MUSIC_DIR_NAME not in f.parts]
+            self.metadata_manager.set_base_sync_mode(base_file, target_files)
+        else:
+            self.metadata_manager.analyze_album(files)
         
         # Override album tag if requested
         if self.use_folder_as_album:
@@ -75,6 +85,15 @@ class MusicFormatter:
                     f"[!] The resulting album folder '{clean_album}' already exists in the output directory. "
                     "Please remove it or rename the source to avoid overwriting."
                 )
+
+    def _find_base_file(self, files: list[Path]) -> Optional[Path]:
+        """
+        Looks for a music file inside a 'base music example' folder.
+        """
+        for f in files:
+            if BASE_MUSIC_DIR_NAME in f.parts and f.suffix.lower() in MUSIC_EXTENSIONS:
+                return f
+        return None
 
     def finalize_library(self, source_path: Optional[Path] = None):
         """
@@ -122,6 +141,10 @@ class MusicFormatter:
         logger.info(f"Processing album: {input_path.name} ({len(files)} items)")
         
         for f in files:
+            # Skip files in the base music folder
+            if BASE_MUSIC_DIR_NAME in f.parts:
+                continue
+                
             padding = self.padding_manager.get_padding_for_dir(f.parent)
             # Use original input_path as base for hierarchy calculation
             base_dir = input_path if input_path.is_dir() else None
