@@ -1,6 +1,5 @@
 import os
 from pathlib import Path
-from dotenv import load_dotenv
 from typing import Optional
 from loguru import logger
 from src.metadata.metadata_utils import TrackPaddingManager
@@ -11,13 +10,13 @@ from src.metadata.metadata_processor import MetadataManager
 from src.metadata.lastfm_client import LastFmClient
 from src.library.scanner_utils import LibraryScanner
 from src.library.library_manager import LibraryManager
+from src.core.config import config
 from src.core.constants import (
     DEFAULT_BITRATE,
     DEFAULT_MAX_ART_SIZE,
     DEFAULT_TARGET_IMAGE_SIZE,
     DEFAULT_TRACK_PADDING,
     MUSIC_EXTENSIONS,
-    BASE_MUSIC_DIR_NAME,
 )
 
 class MusicFormatter:
@@ -33,10 +32,9 @@ class MusicFormatter:
         self.converter = AudioConverter(bitrate=bitrate)
         self.image_processor = ImageProcessor(target_size=DEFAULT_TARGET_IMAGE_SIZE, max_filesize=max_art_size)
         
-        # Load Last.fm API key from .env if not explicitly passed
+        # Load Last.fm API key from config if not explicitly passed
         if lastfm_api_key is None:
-            load_dotenv()
-            lastfm_api_key = os.getenv("LASTFM_API_KEY")
+            lastfm_api_key = config.lastfm_api_key
             
         self.lastfm_client = LastFmClient(api_key=lastfm_api_key)
         self.mirror = FileMirror(output_base=self.output_dir, backup_m3u=backup_m3u)
@@ -61,8 +59,8 @@ class MusicFormatter:
         base_file = self._find_base_file(files)
         if base_file:
             logger.info(f"Base Sync Mode detected! Using '{base_file.name}' as reference.")
-            # Filter out the base music folder from processing
-            target_files = [f for f in files if BASE_MUSIC_DIR_NAME not in f.parts]
+            # Filter out the metadata sync folder from processing
+            target_files = [f for f in files if config.metadata_sync_dir_name not in f.parts]
             self.metadata_manager.set_base_sync_mode(base_file, target_files)
         else:
             self.metadata_manager.analyze_album(files)
@@ -88,10 +86,10 @@ class MusicFormatter:
 
     def _find_base_file(self, files: list[Path]) -> Optional[Path]:
         """
-        Looks for a music file inside a 'base music example' folder.
+        Looks for a music file inside a metadata sync folder.
         """
         for f in files:
-            if BASE_MUSIC_DIR_NAME in f.parts and f.suffix.lower() in MUSIC_EXTENSIONS:
+            if config.metadata_sync_dir_name in f.parts and f.suffix.lower() in MUSIC_EXTENSIONS:
                 return f
         return None
 
@@ -141,8 +139,8 @@ class MusicFormatter:
         logger.info(f"Processing album: {input_path.name} ({len(files)} items)")
         
         for f in files:
-            # Skip files in the base music folder
-            if BASE_MUSIC_DIR_NAME in f.parts:
+            # Skip files in the metadata sync folder
+            if config.metadata_sync_dir_name in f.parts:
                 continue
                 
             padding = self.padding_manager.get_padding_for_dir(f.parent)

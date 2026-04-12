@@ -4,7 +4,7 @@ import mutagen
 from mutagen.id3 import ID3, APIC, TIT2, TPE1, TPE2, TALB, TYER, TCON, TCOM, TRCK, COMM, TPOS, ID3NoHeaderError
 from mutagen.flac import FLAC
 
-from src.core.constants import UNKNOWN_ALBUM, COVER_SEARCH_NAMES, IMAGE_EXTENSIONS, BASE_MUSIC_DIR_NAME, MUSIC_EXTENSIONS
+from src.core.constants import UNKNOWN_ALBUM, COVER_SEARCH_NAMES, IMAGE_EXTENSIONS, MUSIC_EXTENSIONS
 from src.metadata.metadata_analyzer import AlbumAnalyzer
 from src.metadata.cover_finder import CoverArtFinder
 from src.metadata.lastfm_client import LastFmClient

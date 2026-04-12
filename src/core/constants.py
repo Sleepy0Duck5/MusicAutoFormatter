@@ -30,4 +30,4 @@ LASTFM_API_ENDPOINT = "https://ws.audioscrobbler.com/2.0/"
 # Library Management
 # Folders matching this pattern will be handled specially (e.g., skip rename of the folder itself, rename parent instead)
 GENERIC_FOLDER_REGEX = r"^(disc|cd|vol|track|volume|part|d|side)\s?(\d+|[a-z])$"
-BASE_MUSIC_DIR_NAME = "base music example"
+METADATA_SYNC_DIR_NAME = "metadata sync"
