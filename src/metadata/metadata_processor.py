@@ -229,7 +229,12 @@ class MetadataManager:
         
         # 3. Finalization & Consolidation
         if "TIT2" not in target_tags:
-            target_tags.add(TIT2(encoding=3, text=source_path.stem))
+            fallback_title = source_path.stem
+            if self.is_base_sync_mode and source_path in self.file_to_metadata:
+                track = self.file_to_metadata[source_path].get("track")
+                if track:
+                    fallback_title = track
+            target_tags.add(TIT2(encoding=3, text=fallback_title))
 
         self._enforce_consolidated_meta(target_tags)
         target_tags.save(target_path, v2_version=3)
