@@ -19,10 +19,20 @@ class ImageProcessor:
         try:
             img = Image.open(BytesIO(data))
             
-            # 1. Determine target format and MIME
+            original_format = img.format
+            
+            # 1. Check if we need optimization (either format mismatch or size limit)
+            # WebP, JFIF, or over-sized files should be re-saved.
+            needs_resave = (original_format not in ("JPEG", "PNG")) or (len(data) > self.max_filesize)
+            
+            if not needs_resave:
+                logger.debug(f"Cover art ({len(data)} bytes) is within limits and compatible.")
+                target_mime = "image/png" if original_format == "PNG" else "image/jpeg"
+                return data, target_mime
+
+            # 2. Determine target format and MIME
             # If it's a PNG or has transparency, keep it as PNG.
-            # Otherwise, use JPEG (most compact & compatible).
-            if img.mode in ("RGBA", "P", "LA"):
+            if img.mode in ("RGBA", "P", "LA") or original_format == "PNG":
                 target_format = "PNG"
                 target_mime = "image/png"
                 img = img.convert("RGBA")
@@ -30,14 +40,6 @@ class ImageProcessor:
                 target_format = "JPEG"
                 target_mime = "image/jpeg"
                 img = img.convert("RGB")
-
-            # 2. Check if we need optimization (either format mismatch or size limit)
-            # WebP, JFIF, or over-sized files should be re-saved.
-            needs_resave = (img.format not in ("JPEG", "PNG")) or (len(data) > self.max_filesize)
-            
-            if not needs_resave:
-                logger.debug(f"Cover art ({len(data)} bytes) is within limits and compatible.")
-                return data, target_mime
                 
             # 3. Optimize and resize
             logger.info(f"Processing cover art ({len(data)} bytes)... Target: {target_format}")

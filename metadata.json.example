@@ -3,6 +3,7 @@
         "file_name": "Prefix %track%%sep-optional%%title-optional%"
     },
     "output": {
+        "file_name": "%track%. %title%",
         "fallback_title": "Track %track%"
     }
 }
